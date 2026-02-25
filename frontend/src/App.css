@@ -1,42 +1,62 @@
-#root {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 2rem;
-  text-align: center;
+
+
+.header-Home {
+  background-color:#F6DBB8;
+  display:flex;
+  margin: 0;
+  padding: 20px;
+  box-sizing: border-box;
+  justify-content: center;
+  align-items: center;
+  height: auto;
+}
+.tapbar{
+  display:flex;
+  justify-content: center;
+  align-items: center;
+}
+.tap{
+  border: none;
+  background: none;
+  margin: 10px;
+  width: auto;
+  
+}
+.footer-Home {
+  background-color:#F6DBB8;
+  display:flex;
+  margin-top: 50%;
+  height: auto;
+  padding: 50px;
+  box-sizing: border-box;
+  justify-content: space-between;
+  align-items: flex-start;
 }
 
-.logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
-  transition: filter 300ms;
-}
-.logo:hover {
-  filter: drop-shadow(0 0 2em #646cffaa);
-}
-.logo.react:hover {
-  filter: drop-shadow(0 0 2em #61dafbaa);
+.container-page1{
+  margin-top: 5%;
+  margin-left: 10%;
+  margin-right: 10%;
+  background-color: #FFEBD2;
+  display: flex;
+  flex-direction: column;
+  justify-items: flex-start;
+  align-items: center;
+
 }
 
-@keyframes logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+.container-login{
+  margin:2%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-start;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  a:nth-of-type(2) .logo {
-    animation: logo-spin infinite 20s linear;
-  }
-}
-
-.card {
-  padding: 2em;
-}
-
-.read-the-docs {
-  color: #888;
+.tap2{
+  border: none;
+  background: none;
+  margin-right: 5px;
+  width: auto;
+  
 }

@@ -33,13 +33,13 @@ def register(user: UserCreateRegister, db:Session = Depends(get_db)):
 
 @router.post("/login")
 def login(user:UserCreateLogin,db:Session =  Depends(get_db)):
-    db_user = db.query(User).filter(user.username == User.username).first()
+    db_user = db.query(User).filter(User.username == user.username).first()
     if not db_user :
-        raise HTTPException(status_code=400,detail="ไม่มีUsername")
+        raise HTTPException(status_code=400,detail="Usernameไม่ถูกต้อง กรุณากรอกใหม่อีกครั้ง")
     if not verify_password(user.password,db_user.password_hash):
-        raise HTTPException(status_code=400,detail="รหัสผ่านไม่ถูกต้อง")
+        raise HTTPException(status_code=400,detail="Passwordไม่ถูกต้อง กรุณากรอกใหม่อีกครั้ง")
     db_user.is_active = True
     db.add(db_user)
     db.commit()
     db.refresh(db_user)
-    return {"message":"ล็อกอินสำเร็จ"}
+    return {"message":"ล็อกอินสำเร็จ","id":db_user.id,"role":db_user.rolestatus}
