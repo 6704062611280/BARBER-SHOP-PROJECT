@@ -2,6 +2,11 @@
 @tailwind components;
 @tailwind utilities;
 
+
+.btn-primary {
+  @apply bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600;
+}
+
 .header-Home {
   background-color:#F6DBB8;
   display:flex;
