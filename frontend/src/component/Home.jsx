@@ -7,7 +7,7 @@ export default function Home(){
 
     return(
         <>
-        <h1>Home</h1>
+        <h1 className="flex items-center justify-center h-screen bg-gray-900">Home</h1>
         
         </>
     )
