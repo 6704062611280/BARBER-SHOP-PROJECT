@@ -4,6 +4,7 @@ from app import model
 from app.model import Base
 from app.auth import router as auth_router
 from fastapi.middleware.cors import CORSMiddleware
+from app.queue_service import router as  queue_service_router
 
 
 app = FastAPI()
@@ -19,6 +20,7 @@ print("Tables found:", Base.metadata.tables.keys())
 Base.metadata.create_all(engine)
 
 app.include_router(auth_router)
+app.include_router(queue_service_router)
 
 @app.get("/")
 def root():

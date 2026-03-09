@@ -1,4 +1,4 @@
-from sqlalchemy import UniqueConstraint,Column, Integer, Time, Boolean, String, ForeignKey, Float, Enum, Date, DateTime,Table,func
+from sqlalchemy import UniqueConstraint,Column,CheckConstraint, Integer, Time, Boolean, String, ForeignKey, Float, Enum, Date, DateTime,Table,func
 from datetime import datetime,date,time
 from app.database import Base, engine, get_db
 import enum
@@ -96,7 +96,8 @@ class QueueSlots(Base):
     barber_working:Mapped[list["Barber"]] = relationship("Barber", secondary=barber_queue_slots, back_populates="time_working")
     chair:Mapped["Chair"] = relationship(back_populates="queues")
     customer:Mapped["User"] = relationship(back_populates="queues")
-    __table_args__ = (UniqueConstraint("chair_id", "date_working", "start_time"),)
+    __table_args__ = (UniqueConstraint("chair_id", "date_working", "start_time"),CheckConstraint("end_time > start_time")
+)
    
    
     
@@ -115,7 +116,7 @@ class LeaveLetter(Base):
 class OpeningDate(Base):
     __tablename__ = "opening_dates"
 
-    date_open: Mapped[date] = mapped_column(default=date.today, nullable=False,primary_key=True)
+    date_open: Mapped[date] = mapped_column(default=date.today, nullable=False,primary_key=True,index=True)
     open_time:Mapped[time] = mapped_column(Time,nullable=False)
     close_time:Mapped[time] = mapped_column(Time,nullable=False)
     is_open: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
