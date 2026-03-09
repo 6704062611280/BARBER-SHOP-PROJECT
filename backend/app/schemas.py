@@ -7,7 +7,6 @@ class UserCreateRegister(BaseModel):
     password:str
     firstname:str
     lastname: str|None = None
-    birthday: date
     email: str
     phone: str
 
@@ -17,13 +16,11 @@ class UserResponseRegister(BaseModel):
     username:str
     firstname:str
     lastname: str|None = None
-    birthday: date
     rolestatus: UserRole
     email: str
     phone: str
     create_at: datetime
     update_at: datetime
-    is_active: bool = True
 
     class Config:
         from_attributes = True
@@ -34,7 +31,6 @@ class UserCreateLogin(BaseModel):
 
 class UserResponseLogin(BaseModel):
     username:str
-    is_active: bool = True
     
     class Config:
         from_attributes = True

@@ -40,10 +40,8 @@ def register(user: UserCreateRegister, db:Session = Depends(get_db)):
                     password_hash=hash_password(user.password),
                     firstname=user.firstname,
                     lastname=user.lastname,
-                    birthday=user.birthday,
                     email=user.email,
-                    phone=user.phone,
-                    is_active=True
+                    phone=user.phone
                     )
     db.add(new_user)
     db.commit()
@@ -58,7 +56,6 @@ def login(user:UserCreateLogin,db:Session =  Depends(get_db)):
         raise HTTPException(status_code=401,detail="Usernameไม่ถูกต้อง กรุณากรอกใหม่อีกครั้ง")
     if not verify_password(user.password,db_user.password_hash):
         raise HTTPException(status_code=401,detail="Passwordไม่ถูกต้อง กรุณากรอกใหม่อีกครั้ง")
-    db_user.is_active = True
     db.add(db_user)
     db.commit()
     db.refresh(db_user)
