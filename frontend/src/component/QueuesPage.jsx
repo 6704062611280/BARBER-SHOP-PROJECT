@@ -1,4 +1,4 @@
 
-export default queuesPage(){
-    
+export default function queuesPage(){
+
 }

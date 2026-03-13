@@ -1,4 +1,4 @@
 
-export default workingTable(){
-    
+export default function workingTable(){
+
 }
