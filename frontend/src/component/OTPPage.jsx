@@ -3,6 +3,6 @@ import { useState, useRef,useContext  } from "react"
 import { DataContext } from "../DataContext"
 
 
-export default function queuesPage(){
+export default function OTPPage(){
 
 }
