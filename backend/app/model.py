@@ -48,6 +48,9 @@ class User(Base):
     create_at:Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     update_at:Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     queues:Mapped[list["QueueSlots"]] = relationship(back_populates="customer")
+    otp_code:Mapped[str] = mapped_column(String(6), nullable=True)
+    otp_expire:Mapped[datetime] = mapped_column(DateTime, nullable=True)
+    is_verified:Mapped[bool] = mapped_column(Boolean, default=False)
 
 barber_queue_slots = Table(
     "barber_queue_slots",

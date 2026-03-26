@@ -11,14 +11,21 @@ import os
 
 SECRET_KEY = os.getenv("SECRET_KEY")
 ALGORITHM = os.getenv("ALGORITHM")
-ACCESS_TOKEN_EXPIRE_MINUTES = 60
+ACCESS_TOKEN_EXPIRE_MINUTES = 180
 
 def create_access_token(data:dict):
+ try:
     to_encode = data.copy()
     expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     to_encode.update({"exp": expire})
+    if not SECRET_KEY or not ALGORITHM:
+     raise ValueError("Missing SECRET_KEY or ALGORITHM")
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
+ except ValueError:
+    print(ValueError)
+    
+
 
 
 
