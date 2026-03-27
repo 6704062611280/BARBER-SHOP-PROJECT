@@ -25,13 +25,10 @@ export default function Home() {
         return () => clearInterval(interval);
     }, [currentSlide]);
 
-    // --- ฟังก์ชันกดปุ่มจองคิว (ดักจับ Role) ---
     const handleBookingClick = () => {
         if (!islogin) {
-            // ถ้าเป็น Guest (islogin เป็น false) ไปหน้า login
             navigate('/login');
         } else {
-            // ถ้า Login แล้ว (เป็น Customer, Employee, Owner) ไปหน้าจองคิว
             navigate('/chair');
         }
     };
@@ -80,11 +77,11 @@ export default function Home() {
                          </div>
                     </div>
                     
-                    <div className="absolute -bottom-6 right-10 md:bottom-8 md:right-12">
-                        {/* เรียกใช้ฟังก์ชันดักจับที่เขียนไว้ */}
+                    {/* เพิ่ม z-50 ตรงนี้ เพื่อให้ปุ่มลอยอยู่เหนือสิ่งอื่นทั้งหมด */}
+                    <div className="absolute -bottom-6 right-10 md:bottom-8 md:right-12 z-50">
                         <button 
                             onClick={handleBookingClick}
-                            className="bg-[#ff9c2f] hover:bg-[#ff8a00] text-black font-bold py-3 px-8 rounded border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-transform active:translate-y-1 active:shadow-none"
+                            className="bg-[#ff9c2f] hover:bg-[#ff8a00] text-black font-bold py-3 px-8 rounded border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-transform active:translate-y-1 active:shadow-none cursor-pointer"
                         >
                             กดจองคิว<br/>ตอนนี้เลย
                         </button>
