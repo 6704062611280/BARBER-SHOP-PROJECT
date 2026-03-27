@@ -1,14 +1,14 @@
 import { Outlet, useNavigate, useLocation } from "react-router-dom"
 import { useContext, useState, useRef, useEffect } from "react"
 import { DataContext } from "../DataContext"
-import "./style/Layout.css" // คงไฟล์ CSS ของเพื่อนไว้เผื่อมีตั้งค่า Font
+import "./style/Layout.css" 
 
 export default function Layout() {
   const navigate = useNavigate()
   const location = useLocation()
   
-  // ดึง role และ islogin มาจาก DataContext
-  const { role, islogin, setIsLogin } = useContext(DataContext)
+  // ดึงตัวแปรมาให้ครบจาก DataContext
+  const { role, islogin, setIsLogin, setRole } = useContext(DataContext)
   
   const [isPopupOpen, setIsPopupOpen] = useState(false);
   const popupRef = useRef();
@@ -18,10 +18,10 @@ export default function Layout() {
     localStorage.clear()
     localStorage.setItem("islogin", false)
     setIsLogin(false) 
+    setRole(null) // ลบ Role ออกตอน Logout
     navigate("/login")
   }
 
-  // ปิด Popup เมื่อคลิกที่อื่น
   useEffect(() => {
     function handleClickOutside(event) {
       if (popupRef.current && !popupRef.current.contains(event.target)) {
@@ -39,7 +39,6 @@ export default function Layout() {
     navigate(path);
   }
 
-  // รูปแบบ Icon ตาม Role
   const renderNavProfileIcon = () => {
     if (role === 'OWNER') return <span className="text-2xl">👨‍💼</span>;
     if (role === 'EMPLOYEE') return <span className="text-2xl">💈</span>;
@@ -50,19 +49,25 @@ export default function Layout() {
     );
   }
 
-  // เมนู Popup ย่อย (เมื่อคลิกรูปโปรไฟล์)
+  // อัปเดตลิงก์ย่อยให้ตรงกับ App.jsx
   const renderPopupMenuItems = () => {
     const menuItemClass = "flex items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-orange-50 w-full text-left transition-colors duration-150";
-    const commonMenu = <button onClick={() => navigateTo("/profile")} className={menuItemClass}>✏️ แก้ไขข้อมูลส่วนตัว</button>;
+    const commonMenu = <button onClick={() => navigateTo("/")} className={menuItemClass}>✏️ แก้ไขข้อมูลส่วนตัว</button>;
 
     if (role === 'CUSTOMER') {
-      return <>{commonMenu}<button onClick={() => navigateTo("/my-queue")} className={menuItemClass}>📅 คิวของฉัน</button></>;
+      return <>{commonMenu}<button onClick={() => navigateTo("/booked-table")} className={menuItemClass}>📅 คิวของฉัน</button></>;
     }
     if (role === 'EMPLOYEE') {
-      return <>{commonMenu}<button onClick={() => navigateTo("/manage-queue")} className={menuItemClass}>📋 จัดคิวลูกค้า</button></>;
+      return <>{commonMenu}<button onClick={() => navigateTo("/working-table")} className={menuItemClass}>📋 จัดคิวลูกค้า</button></>;
     }
     if (role === 'OWNER') {
-      return <>{commonMenu}<button onClick={() => navigateTo("/dashboard")} className={menuItemClass}>📊 ภาพรวมกิจการ</button></>;
+      return (
+        <>
+          {commonMenu}
+          <button onClick={() => navigateTo("/dashboard")} className={menuItemClass}>📊 ภาพรวมกิจการ</button>
+          <button onClick={() => navigateTo("/manage-user")} className={menuItemClass}>👥 จัดการพนักงาน</button>
+        </>
+      );
     }
     return commonMenu;
   }
@@ -83,11 +88,11 @@ export default function Layout() {
           <span className="text-gray-400">|</span>
           <button onClick={() => navigate("/chair")} className={getNavLinkClass("/chair")}>จองคิว</button>
           
-          {/* เงื่อนไขโชว์ "สถานะคิว" เฉพาะ Guest และ CUSTOMER */}
+          {/* อัปเดต Path ให้เป็น /queues-table เพื่อให้ตรงกับ App.jsx */}
           {(!islogin || role === 'CUSTOMER') && (
             <>
               <span className="text-gray-400">|</span>
-              <button onClick={() => navigate("/view-queue")} className={getNavLinkClass("/view-queue")}>สถานะคิว</button>
+              <button onClick={() => navigate("/queues-table")} className={getNavLinkClass("/queues-table")}>สถานะคิว</button>
             </>
           )}
         </nav>
@@ -122,31 +127,30 @@ export default function Layout() {
       </main>
       
       {/* --------------------------------------------------------- */}
-      {/* 🛠️ DEV TOOLS: แผงควบคุมลับสำหรับเปลี่ยน Role (ลบออกตอนทำเว็บเสร็จ) */}
+      {/* 🛠️ DEV TOOLS: อัปเดตให้ setRole ทำงานแล้ว! */}
       <div className="fixed bottom-4 left-4 bg-white p-4 rounded-xl shadow-2xl border-2 border-red-500 z-[100] flex flex-col gap-2">
         <p className="text-xs font-bold text-red-500 text-center uppercase tracking-wider">Dev Tools : Switch Role</p>
         <div className="flex gap-2 text-sm">
           <button 
-            onClick={() => { setIsLogin(false); /* Role ไร้ค่าเมื่อเป็น Guest */ }} 
+            onClick={() => { setIsLogin(false); setRole(null); }} 
             className="bg-gray-200 hover:bg-gray-300 px-3 py-1 rounded font-bold"
           >
             Guest
           </button>
           <button 
-            onClick={() => { setIsLogin(true); /* ข้ามไปแก้ context ตรงๆ ไม่มีฟังก์ชัน setRole ในตัวอย่างเก่า แต่สมมติว่าคุณมี */ }} 
-            // *หมายเหตุ: ถ้าใน DataContext ของคุณมีฟังก์ชัน setRole ให้เรียกใช้ด้วย เช่น setRole('CUSTOMER')
+            onClick={() => { setIsLogin(true); setRole('CUSTOMER'); }} 
             className="bg-blue-200 hover:bg-blue-300 px-3 py-1 rounded font-bold text-blue-800"
           >
             Customer
           </button>
           <button 
-            // onClick={() => { setIsLogin(true); setRole('EMPLOYEE'); }} 
+            onClick={() => { setIsLogin(true); setRole('EMPLOYEE'); }} 
             className="bg-green-200 hover:bg-green-300 px-3 py-1 rounded font-bold text-green-800"
           >
             Employee
           </button>
           <button 
-            // onClick={() => { setIsLogin(true); setRole('OWNER'); }} 
+            onClick={() => { setIsLogin(true); setRole('OWNER'); }} 
             className="bg-orange-200 hover:bg-orange-300 px-3 py-1 rounded font-bold text-orange-800"
           >
             Owner
