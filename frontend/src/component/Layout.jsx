@@ -134,7 +134,7 @@ export default function Layout() {
     <div className="min-h-screen flex flex-col font-sans relative">
       
       {/* --- Navbar --- */}
-      <header className="bg-[#f2d8b3] px-6 py-4 flex flex-row justify-between items-center shadow-sm relative z-50 h-20">
+      <header className="bg-[#F6DBB8] px-6 py-4 flex flex-row justify-between items-center shadow-sm relative z-50 h-20">
         
         {/* ส่วนที่ 1: โลโก้ */}
         <div className="flex-1 flex justify-start items-center">
@@ -160,7 +160,7 @@ export default function Layout() {
         {/* ส่วนที่ 3: ปุ่ม Login / Profile Popup */}
         <div className="flex-1 flex justify-end items-center gap-4 relative">
           {!islogin && (
-            <button onClick={() => navigate("/login")} className="bg-[#ff9c2f] hover:bg-[#ff8a00] text-black font-bold px-6 py-2 rounded-lg shadow-md border border-orange-400 transition-colors">
+            <button onClick={() => navigate("/login")} className="bg-[#FFA333] hover:bg-[#ff8a00] text-black font-bold px-6 py-2 rounded-lg shadow-md border border-orange-400 transition-colors">
               ลงชื่อเข้าใช้
             </button>
           )}
@@ -214,7 +214,7 @@ export default function Layout() {
       </div>
 
       {/* --- Footer (เอาโครงสร้างจาก Layout เก่า แต่ใส่ Icon รูปภาพแทน) --- */}
-      <footer className="bg-[#5c4033] text-white py-10 px-8 md:px-24 flex flex-col md:flex-row justify-between items-start gap-8 z-30 relative">
+      <footer className="bg-[#5D4037] text-white py-10 px-8 md:px-24 flex flex-col md:flex-row justify-between items-start gap-8 z-30 relative">
         <div>
           <h3 className="font-bold mb-3 text-lg flex items-center gap-2">
              <img src="/images/icon-location-white.png" alt="location" className="w-6 h-6 object-contain" /> ที่อยู่ร้าน
