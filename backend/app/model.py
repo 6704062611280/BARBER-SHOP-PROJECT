@@ -48,12 +48,23 @@ class User(Base):
     create_at:Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     update_at:Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     queues:Mapped[list["QueueSlots"]] = relationship(back_populates="customer")
-    otp_code:Mapped[str] = mapped_column(String(6), nullable=True)
-    otp_expire:Mapped[datetime] = mapped_column(DateTime, nullable=True)
+    
+
+
+class PreUser(Base):
+    __tablename__="pre_user"
+
+    id:Mapped[int] = mapped_column(primary_key=True)
+    username:Mapped[str] = mapped_column(String(50),unique=True,nullable=False)
+    password_hash:Mapped[str] = mapped_column(String(255),nullable=False)
+    firstname:Mapped[str] = mapped_column(String(50),nullable=False)
+    lastname:Mapped[str | None] = mapped_column(String(50))
+    phone:Mapped[str] = mapped_column(String(50),nullable=False)
+    email:Mapped[str] = mapped_column(String(50),unique=True,nullable=False)
+    otp_code:Mapped[str] = mapped_column(String(50),nullable=True)
+    otp_expire:Mapped[datetime] = mapped_column(DateTime(timezone=True),nullable=True)
+    otp_attempts:Mapped[int] = mapped_column(Integer,default=0)
     is_verified:Mapped[bool] = mapped_column(Boolean, default=False)
-
-
-
 
 
 class Barber(Base):
