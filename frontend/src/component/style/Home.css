@@ -1,3 +1,50 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+/* สไตล์กำหนดสำหรับประวัติร้านที่เรนเดอร์จาก HTML (history-content) */
+/* กำหนดสไตล์เริ่มต้นให้เป็นตัวอักษรขนาดเล็กตามที่คุณต้องการ */
+.history-content {
+    font-size: 14px; /* Default ขนาดเล็ก */
+    line-height: 1.6; /* เว้นบรรทัดให้อ่านง่าย */
+    color: #4b5563; /* สีเทาเข้ม */
+}
+
+/* หัวข้อใหญ่มาก h1 (ใน HTML) */
+.history-content h1 {
+    font-size: 2.5rem; /* ขนาดใหญ่ (40px) */
+    font-weight: 800; /* หนามาก */
+    margin-bottom: 1rem; /* เว้นระยะด้านล่าง */
+    color: #1c2a4f; /* สีน้ำเงินเข้มของร้าน */
+}
+
+/* หัวข้อปานกลาง h2 (ใน HTML) */
+.history-content h2 {
+    font-size: 2rem; /* (32px) */
+    font-weight: 700;
+    margin-bottom: 0.8rem;
+    color: #1c2a4f;
+}
+
+/* หัวข้อเล็ก h3 (ใน HTML) */
+.history-content h3 {
+    font-size: 1.75rem; /* (28px) */
+    font-weight: 600;
+    margin-bottom: 0.6rem;
+}
+
+/* ย่อหน้า p (ใน HTML) */
+.history-content p {
+    margin-bottom: 1.2rem; /* เว้นระยะระหว่างย่อหน้า */
+}
+
+/* ตัวหนา b หรือ strong (ใน HTML) */
+.history-content b, 
+.history-content strong {
+    font-weight: 700;
+    color: #1c2a4f;
+}
+
+/* ตัวอย่างการกำหนดสไตล์เพิ่มเติมที่คุณสามารถใช้ได้ */
+/* .history-content span.highlight {
+    background-color: yellow;
+} */
