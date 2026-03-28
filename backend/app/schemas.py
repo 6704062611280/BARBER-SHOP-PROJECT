@@ -1,6 +1,6 @@
-from pydantic import BaseModel
+from pydantic import BaseModel,EmailStr, Field
 from datetime import datetime,date,time
-from app.model import UserRole
+from app.model import UserRole,BookedStatus,TypeUser
 from typing import Optional
 
 
@@ -15,7 +15,7 @@ class UserResponseRegister(BaseModel):
     firstname:str
     lastname: str|None = None
     rolestatus: UserRole
-    email: str
+    email: EmailStr
     phone: str
     create_at: datetime
     update_at: datetime
@@ -26,18 +26,16 @@ class UserResponseRegister(BaseModel):
 
 class UserCreateLogin(BaseModel):
     username:str
-    password:str
+    password: str = Field(min_length=8)
 
 class UserResponseLogin(BaseModel):
-    username:str
+    access_token: str
+    refresh_token: str
+    token_type: str = "bearer"
     
     class Config:
         from_attributes = True
 
-class QueueCreate(BaseModel):
-    barber_id: int
-    date: date
-    time: time
 
 
 class QueueResponse(BaseModel):
@@ -45,8 +43,12 @@ class QueueResponse(BaseModel):
     start_time: time
     end_time: time
     chair_id: int
+    barber_id: Optional[int]
+    customer_id: Optional[int]
     date_working: date
-    status: str
+    status: BookedStatus
+    status_user: TypeUser
+
 
     class Config:
         from_attributes = True
@@ -57,19 +59,19 @@ class ChairCreate(BaseModel):
 
 class ChairResponse(BaseModel):
     id:int
-    chair_name:str
+    name:str
 
 class OpenDateCreate(BaseModel):
-    open_date:date
-    start_time:time
-    end_time:time
+    date_open: date
+    open_time: time
+    close_time: time
     is_open: bool
 
 
 class OpenDateResponse(BaseModel):
-    open_date:date
-    start_time:time
-    end_time:time
+    date_open: date
+    open_time: time
+    close_time: time
     is_open: bool
 
     class Config:
@@ -77,10 +79,10 @@ class OpenDateResponse(BaseModel):
 
 class UserCreatePreRegister(BaseModel):
     username:str
-    password:str
+    password: str = Field(min_length=8)
     firstname:str
     lastname: str|None = None
-    email: str
+    email: EmailStr
     phone: str
 
 class UserResponsePreRegister(BaseModel):
@@ -89,7 +91,7 @@ class UserResponsePreRegister(BaseModel):
     firstname:str
     lastname: str|None = None
     rolestatus: UserRole
-    email: str
+    email: EmailStr
     phone: str
     is_verified: bool
     
@@ -100,14 +102,17 @@ class UserResponsePreRegister(BaseModel):
 class UserUpdateProfile(BaseModel):
     firstname: Optional[str] = None
     lastname: Optional[str] = None
-    email: Optional[str] = None
+    email: Optional[EmailStr] = None
     phone: Optional[str] = None
     profile_img: Optional[str] = None
 
 class UserChangePassword(BaseModel):
-    old_password: str
-    new_password: str
+    old_password: str = Field(min_length=8)
+    new_password: str = Field(min_length=8)
+
 
 class UserChangeEmail(BaseModel):
     new_email: str
     otp: str
+
+    

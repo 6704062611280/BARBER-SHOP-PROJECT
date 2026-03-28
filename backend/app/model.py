@@ -110,7 +110,7 @@ class QueueSlots(Base):
     status_user:Mapped[TypeUser] = mapped_column(Enum(TypeUser),default=TypeUser.NONE)
     date_working: Mapped[date] = mapped_column(Date, nullable=False)
     barber_working:Mapped["Barber"] = relationship("Barber", back_populates="time_working")
-    barber_id: Mapped[int] = mapped_column(ForeignKey("barbers.id"))
+    barber_id: Mapped[int] = mapped_column(ForeignKey("barbers.id"), nullable=True)
     chair:Mapped["Chair"] = relationship(back_populates="queues")
     customer:Mapped["User"] = relationship(back_populates="queues")
     __table_args__ = (UniqueConstraint("chair_id", "date_working", "start_time"),CheckConstraint("end_time > start_time")

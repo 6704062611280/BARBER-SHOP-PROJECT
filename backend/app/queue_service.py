@@ -1,11 +1,34 @@
-from fastapi import APIRouter,Depends,HTTPException
+from fastapi import APIRouter,Depends,HTTPException,Header
 from app.database import get_db
 from sqlalchemy.orm import Session
 from app.model import Chair, OpeningDate, QueueSlots,User,BookedStatus,TypeUser,UserRole,Barber
 from datetime import date
 from app.schemas import QueueResponse
+from app.rolebase import require_roles,require_barber
+from app.backtask import get_current_user
+from datetime import datetime, timedelta
 
 router = APIRouter(prefix="/queue_service",tags=["Queue_Service"])
+
+allowed_transitions = {
+    BookedStatus.AVAILABLE: [BookedStatus.BOOKED],
+    BookedStatus.CANCELLED: [BookedStatus.BOOKED],  
+    BookedStatus.BOOKED: [BookedStatus.CHECKIN, BookedStatus.CANCELLED, BookedStatus.NO_SHOW],
+    BookedStatus.CHECKIN: [BookedStatus.COMPLETE],
+}
+
+def validate_transition(current, new):
+    if new not in allowed_transitions.get(current, []):
+        raise HTTPException(400, "Invalid state transition")
+
+def get_queue_or_404(db: Session, queue_id: int):
+    queue = db.query(QueueSlots)\
+        .filter(QueueSlots.id == queue_id)\
+        .with_for_update()\
+        .first()
+    if not queue:
+        raise HTTPException(404, "Queue not found")
+    return queue
 
 @router.get("/chairs")
 def viewChairs(dateshop:date = date.today(),db:Session = Depends(get_db)):
@@ -51,15 +74,16 @@ def viewWorkingTable(barber_id: int,dateshop:date = date.today(), db: Session = 
 
 
 @router.post("/queues/{queue_id}/booked", response_model=QueueResponse)
-def bookedQueuesByCustomer(chair_id:int,user_id:int,queue_id: int, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.id == user_id,User.rolestatus == UserRole.CUSTOMER).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    queue = db.query(QueueSlots).filter(QueueSlots.id == queue_id).first()
-    if not queue:
-        raise HTTPException(status_code=404, detail="Queue not found")
-    if queue.status != BookedStatus.AVAILABLE:
-        raise HTTPException(status_code=400, detail="Queue already booked")
+def bookedQueuesByCustomer(
+    chair_id: int,
+    queue_id: int,
+    user: User = Depends(require_roles([UserRole.CUSTOMER])),
+    db: Session = Depends(get_db)
+):
+    queue = get_queue_or_404(db,queue_id)
+    if queue.status == BookedStatus.NO_SHOW:
+        raise HTTPException(400, "Slot expired and cannot be booked")
+    validate_transition(queue.status, BookedStatus.BOOKED)
     chair = db.query(Chair).filter(Chair.id == chair_id).first()
     if not chair:
         raise HTTPException(status_code=404, detail="Chair not found")
@@ -68,88 +92,215 @@ def bookedQueuesByCustomer(chair_id:int,user_id:int,queue_id: int, db: Session =
     queue.customer_id = user.id
     queue.status = BookedStatus.BOOKED
     queue.status_user = TypeUser.ONLINE
-    db.commit()
-    db.refresh(queue)
+    try:
+      db.commit()
+      db.refresh(queue)
+    except:
+      db.rollback()
+      raise HTTPException(500, "Database error")
     return queue
 
 @router.post("/barber/{barber_id}/queues/{queue_id}/booked", response_model=QueueResponse)
-def bookedQueuesByBarber(barber_id:int,queue_id:int, db: Session = Depends(get_db)):
-    barber = db.query(Barber).join(User).filter(Barber.id == barber_id,User.rolestatus != UserRole.CUSTOMER).first()
-    if not barber:
-        raise HTTPException(status_code=404, detail="User not found")
-    queue = db.query(QueueSlots).filter(QueueSlots.id == queue_id).first()
-    if not queue:
-        raise HTTPException(status_code=404, detail="Queue not found")
-    if queue.status != BookedStatus.AVAILABLE:
-        raise HTTPException(status_code=400, detail="Queue already booked")
-    queue.customer_id = barber.user_id
+def bookedQueuesByBarber(
+    barber_id:int,
+    queue_id:int,
+    user: User = Depends(require_barber()),
+    db: Session = Depends(get_db)
+):
+    if user.barber.id != barber_id:
+        raise HTTPException(status_code=403, detail="Not your barber profile")
+    queue = get_queue_or_404(db,queue_id)
+    if queue.status == BookedStatus.NO_SHOW:
+        raise HTTPException(400, "Slot expired and cannot be booked")
+    validate_transition(queue.status, BookedStatus.BOOKED)
+    queue.customer_id = user.id
     queue.status = BookedStatus.BOOKED
     queue.status_user = TypeUser.WALK_IN
-    db.commit()
-    db.refresh(queue)
+    try:
+      db.commit()
+      db.refresh(queue)
+    except:
+      db.rollback()
+      raise HTTPException(500, "Database error")
     return queue
 
 
 @router.post("/queues/{queue_id}/cancel", response_model=QueueResponse)
-def cancelByCustomer( queue_id:int, user_id:int, db: Session = Depends(get_db)):
-    queue = db.query(QueueSlots).filter(QueueSlots.id == queue_id).first()
-    if not queue:
-        raise HTTPException(status_code=404, detail="Queue not found")
-    if queue.customer_id != user_id:
+def cancelByCustomer(
+    queue_id:int,
+    user: User = Depends(require_roles([UserRole.CUSTOMER])),
+    db: Session = Depends(get_db)
+):
+    queue = get_queue_or_404(db,queue_id)
+    if queue.customer_id != user.id:
         raise HTTPException(status_code=403, detail="Not your queue")
-    if queue.status != BookedStatus.BOOKED:
-        raise HTTPException(status_code=400, detail="Queue cannot be cancelled")
+    validate_transition(queue.status, BookedStatus.CANCELLED)
     queue.status = BookedStatus.CANCELLED
     queue.customer_id = None
     queue.status_user = TypeUser.NONE
-    db.commit()
-    db.refresh(queue)
+    try:
+      db.commit()
+      db.refresh(queue)
+    except:
+      db.rollback()
+      raise HTTPException(500, "Database error")
     return queue
 
 @router.post("/barber/{barber_id}/queues/{queue_id}/cancel")
-def cancelByBarber(barber_id:int, queue_id:int, db: Session = Depends(get_db)):
-    queue = db.query(QueueSlots).filter(QueueSlots.id == queue_id).first()
-    if not queue:
-        raise HTTPException(status_code=404, detail="Queue not found")
+def cancelByBarber(
+    barber_id:int,
+    queue_id:int,
+    user: User = Depends(require_barber()),
+    db: Session = Depends(get_db)
+):
+    if user.barber.id != barber_id:
+        raise HTTPException(status_code=403, detail="Not your barber profile")
+    queue = get_queue_or_404(db,queue_id)
+    validate_transition(queue.status, BookedStatus.CANCELLED)
     queue.status = BookedStatus.CANCELLED
     queue.customer_id = None
     queue.status_user = TypeUser.NONE
-    db.commit()
+    try:
+      db.commit()
+      db.refresh(queue)
+    except:
+      db.rollback()
+      raise HTTPException(500, "Database error")
     return {"message":"Queue cancelled"}
 
-@router.post("/system/queues/{queue_id}/auto/cancel")
-def cancelByAuto(queue_id:int, db: Session = Depends(get_db)):
-    queue = db.query(QueueSlots).filter(QueueSlots.id == queue_id).first()
+def auto_cancel_queue(queue_id: int, db: Session):
+    queue = db.query(QueueSlots)\
+        .filter(QueueSlots.id == queue_id)\
+        .with_for_update()\
+        .first()
+
     if not queue:
-        raise HTTPException(status_code=404, detail="Queue not found")
+        return
+
+    if queue.status != BookedStatus.BOOKED:
+        return
+
+    start_dt = datetime.combine(queue.date_working, queue.start_time)
+
+    if datetime.now() < start_dt + timedelta(minutes=5):
+        return
+
+    validate_transition(queue.status, BookedStatus.NO_SHOW)
+
     queue.status = BookedStatus.NO_SHOW
     queue.customer_id = None
     queue.status_user = TypeUser.NONE
-    db.commit()
-    return {"message":"Queue marked as NO_SHOW"}
+
+    try:
+        db.commit()
+    except:
+        db.rollback()
 
 @router.post("/barber/{barber_id}/queues/{queue_id}/checkin")
-def checkin(barber_id:int, queue_id:int, db: Session = Depends(get_db)):
-    queue = db.query(QueueSlots).filter(QueueSlots.id == queue_id).first()
+def checkin(
+    barber_id:int,
+    queue_id:int,
+    user: User = Depends(require_barber()),
+    db: Session = Depends(get_db)
+):
+    if user.barber.id != barber_id:
+        raise HTTPException(status_code=403, detail="Not your barber profile")
+    queue = get_queue_or_404(db,queue_id)
     if queue.barber_id != barber_id:
         raise HTTPException(status_code=403, detail="Not your queue")
-    if not queue:
-        raise HTTPException(status_code=404, detail="Queue not found")
-    if queue.status != BookedStatus.BOOKED:
-        raise HTTPException(status_code=400, detail="Queue cannot checkin")
+    validate_transition(queue.status, BookedStatus.CHECKIN)
     queue.status = BookedStatus.CHECKIN
-    db.commit()
+    try:
+      db.commit()
+      db.refresh(queue)
+    except:
+      db.rollback()
+      raise HTTPException(500, "Database error")
     return {"message":"Customer checked in"}
 
 @router.post("/barber/{barber_id}/queues/{queue_id}/complete")
-def checkout(barber_id:int, queue_id:int, db: Session = Depends(get_db)):
-    queue = db.query(QueueSlots).filter(QueueSlots.id == queue_id).first()
+def checkout(
+    barber_id:int,
+    queue_id:int,
+    user: User = Depends(require_barber()),
+    db: Session = Depends(get_db)
+):
+    if user.barber.id != barber_id:
+        raise HTTPException(status_code=403, detail="Not your barber profile")
+    queue = get_queue_or_404(db,queue_id)
     if queue.barber_id != barber_id:
         raise HTTPException(status_code=403, detail="Not your queue")
-    if not queue:
-        raise HTTPException(status_code=404, detail="Queue not found")
-    if queue.status != BookedStatus.CHECKIN:
-        raise HTTPException(status_code=400, detail="Queue not ready to complete")
+    validate_transition(queue.status, BookedStatus.COMPLETE)
     queue.status = BookedStatus.COMPLETE
-    db.commit()
+    try:
+      db.commit()
+      db.refresh(queue)
+    except:
+      db.rollback()
+      raise HTTPException(500, "Database error")
     return {"message":"Service completed"}
+
+@router.post("/queues_generate")
+def generate_queues(
+    dateshop: date,
+    interval_minutes: int = 60,
+    user: User = Depends(require_roles([UserRole.OWNER])),
+    db: Session = Depends(get_db),
+):
+    opening = db.query(OpeningDate).filter(
+        OpeningDate.date_open == dateshop
+    ).first()
+
+    if not opening:
+        raise HTTPException(404, "No opening date")
+
+    if not opening.is_open:
+        raise HTTPException(400, "Shop closed")
+
+    chairs = opening.chairs
+    if not chairs:
+        raise HTTPException(400, "No chairs")
+
+    created = 0
+
+    for chair in chairs:
+        current = datetime.combine(dateshop, opening.open_time)
+        end = datetime.combine(dateshop, opening.close_time)
+
+        while current < end:
+            start_time = current.time()
+            next_time = current + timedelta(minutes=interval_minutes)
+            end_time = next_time.time()
+
+            # 🔥 เช็คว่ามี slot แล้วไหม
+            exists = db.query(QueueSlots).filter(
+                QueueSlots.chair_id == chair.id,
+                QueueSlots.date_working == dateshop,
+                QueueSlots.start_time == start_time
+            ).first()
+
+            if not exists:
+                slot = QueueSlots(
+                    start_time=start_time,
+                    end_time=end_time,
+                    chair_id=chair.id,
+                    barber_id=None,  # ❗ เดี๋ยวค่อย assign ทีหลัง
+                    date_working=dateshop,
+                    status=BookedStatus.AVAILABLE,
+                    status_user=TypeUser.NONE
+                )
+                db.add(slot)
+                created += 1
+
+            current = next_time
+
+    try:
+        db.commit()
+    except:
+        db.rollback()
+        raise HTTPException(500, "Database error")
+
+    return {
+        "message": "Queues generated",
+        "created_slots": created
+    }
