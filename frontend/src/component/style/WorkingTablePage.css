@@ -1,3 +1,252 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+.working-table-page {
+    padding: 2rem;
+    max-width: 650px;
+    margin: 0 auto;
+    font-family: inherit;
+    min-height: calc(100vh - 200px);
+}
+
+.top-actions {
+    display: flex;
+    justify-content: flex-start;
+    margin-bottom: 20px;
+}
+
+.back-arrow-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+}
+
+.header-info-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-bottom: 30px;
+}
+
+.today-btn {
+    background-color: #ffaa33;
+    color: #000;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 40px;
+    font-size: 1.1rem;
+    font-weight: bold;
+    margin-bottom: 20px;
+}
+
+.chair-barber-box {
+    background-color: white;
+    border: 3px solid #574238; /* Brown border */
+    border-radius: 12px;
+    padding: 20px 40px;
+    text-align: center;
+    font-size: 1.2rem;
+    box-shadow: 4px 4px 0px 0px rgba(0,0,0,0.15);
+}
+
+.chair-barber-box p {
+    margin: 10px 0;
+}
+
+.table-container {
+    background-color: #f7d2be; /* Peach background */
+    border-radius: 16px;
+    padding: 20px;
+    box-shadow: 8px 8px 15px rgba(0,0,0,0.1);
+}
+
+.schedule-table {
+    width: 100%;
+    border-collapse: collapse;
+    background-color: white;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 2px solid #574238;
+}
+
+.schedule-table th, .schedule-table td {
+    border: 1px solid #574238;
+    padding: 15px;
+    text-align: left;
+}
+
+.schedule-table th {
+    background-color: white;
+    font-size: 1.2rem;
+    font-weight: normal;
+    text-align: center;
+    padding: 25px 15px;
+}
+
+.th-time {
+    width: 25%;
+}
+
+.th-status {
+    width: 75%;
+}
+
+.row-booked {
+    background-color: #fcf6b1; /* Light yellow */
+}
+
+.row-free {
+    background-color: #bbf7a3; /* Light green */
+}
+
+.time-cell {
+    text-align: center !important;
+    font-size: 1.1rem;
+}
+
+.status-cell {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    min-height: 60px;
+}
+
+.status-cell.center-content {
+    justify-content: center;
+}
+
+.customer-info {
+    font-size: 1.05rem;
+    line-height: 1.4;
+}
+
+.customer-info p {
+    margin: 2px 0;
+}
+
+.walk-in-text {
+    font-size: 1.2rem;
+    text-align: center;
+    width: 100%;
+}
+
+.btn-cancel, .btn-book {
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 25px;
+    font-size: 1rem;
+    cursor: pointer;
+}
+
+.btn-cancel {
+    background-color: #f14444; /* Light red */
+}
+
+.btn-book {
+    background-color: #179c1e; /* Green */
+}
+
+/* Modals */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background-color: rgba(0, 0, 0, 0.4);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.custom-modal {
+    background-color: #fffcf0;
+    border: 5px solid #574238;
+    border-radius: 16px;
+    padding: 40px 40px;
+    width: 450px;
+    position: relative;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+}
+
+.close-btn {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    background: white;
+    border: 3px solid black;
+    border-radius: 8px;
+    cursor: pointer;
+    padding: 5px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-title {
+    font-size: 1.4rem;
+    font-weight: normal;
+    margin-bottom: 30px;
+    color: #000;
+    text-align: center;
+}
+
+.modal-details {
+    margin-bottom: 30px;
+    font-size: 1.4rem;
+    line-height: 1.8;
+}
+
+.modal-actions-center {
+    display: flex;
+    justify-content: center;
+    gap: 30px;
+    margin-top: 20px;
+}
+
+.btn-confirm-cancel {
+    background-color: #f14444;
+    color: white;
+    border: none;
+    border-radius: 10px;
+    padding: 10px 40px;
+    font-size: 1.2rem;
+    cursor: pointer;
+}
+
+.btn-confirm-ok {
+    background-color: #179c1e;
+    color: white;
+    border: none;
+    border-radius: 10px;
+    padding: 10px 40px;
+    font-size: 1.2rem;
+    cursor: pointer;
+}
+
+.btn-done {
+    background-color: #f7a032; /* Orange */
+    color: black;
+    font-weight: bold;
+    border: none;
+    border-radius: 20px;
+    padding: 10px 50px;
+    font-size: 1.2rem;
+    cursor: pointer;
+}
+
+.success-icon-container {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 20px;
+}
+
+.success-icon {
+    width: 60px;
+    height: 60px;
+    border: 5px solid black;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
