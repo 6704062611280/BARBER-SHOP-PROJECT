@@ -1,5 +1,5 @@
 from sqlalchemy import UniqueConstraint,Column,CheckConstraint, Integer, Time, Boolean, String, ForeignKey, Float, Enum, Date, DateTime,Table,func
-from datetime import datetime,date,time
+from datetime import datetime,date,time,timezone
 from app.database import Base, engine, get_db
 import enum
 from sqlalchemy.orm import relationship,Mapped,mapped_column
@@ -11,6 +11,11 @@ class BookedStatus(enum.Enum):
     CANCELLED = "CANCELLED"
     COMPLETE = "COMPLETE"
     NO_SHOW = "NO_SHOW"
+
+class PreUserStatus(enum.Enum):
+    CHANGE_EMAIL = "CHANGE_EMAIL"
+    REGISTER = "REGISTER"
+    RESET_PASSWORD = "RESET_PASSWORD"
 
 class ChairStatus(enum.Enum):
     AVAILABLE = "AVAILABLE"
@@ -44,10 +49,13 @@ class User(Base):
     rolestatus:Mapped[UserRole] = mapped_column(Enum(UserRole),default=UserRole.CUSTOMER)#member barber(staff) owner
     email:Mapped[str] = mapped_column(String(50),unique=True,nullable=False)
     phone:Mapped[str] = mapped_column(String(50),nullable=False)
+    last_activity:Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+    barber:Mapped["Barber"] = relationship(back_populates="user_data", uselist=False)
     profile_img:Mapped[str | None] = mapped_column(String(255))#ใส่path
     create_at:Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     update_at:Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     queues:Mapped[list["QueueSlots"]] = relationship(back_populates="customer")
+   
     
 
 
@@ -55,12 +63,13 @@ class PreUser(Base):
     __tablename__="pre_user"
 
     id:Mapped[int] = mapped_column(primary_key=True)
-    username:Mapped[str] = mapped_column(String(50),unique=True,nullable=False)
+    username:Mapped[str] = mapped_column(String(50),nullable=False)
     password_hash:Mapped[str] = mapped_column(String(255),nullable=False)
     firstname:Mapped[str] = mapped_column(String(50),nullable=False)
     lastname:Mapped[str | None] = mapped_column(String(50))
     phone:Mapped[str] = mapped_column(String(50),nullable=False)
-    email:Mapped[str] = mapped_column(String(50),unique=True,nullable=False)
+    email:Mapped[str] = mapped_column(String(50),nullable=False)
+    purpose: Mapped[PreUserStatus] = mapped_column(Enum(PreUserStatus))
     otp_code:Mapped[str] = mapped_column(String(50),nullable=True)
     otp_expire:Mapped[datetime] = mapped_column(DateTime(timezone=True),nullable=True)
     otp_attempts:Mapped[int] = mapped_column(Integer,default=0)
@@ -72,7 +81,7 @@ class Barber(Base):
 
     id:Mapped[int] = mapped_column(primary_key=True)
     user_id:Mapped[int] = mapped_column(ForeignKey("users.id"))
-    user_data:Mapped["User"] = relationship(single_parent=True)
+    user_data:Mapped["User"] = relationship("User", back_populates="barber")
     time_working:Mapped[list["QueueSlots"]] = relationship("QueueSlots",  back_populates="barber_working")
     leave_letter:Mapped[list["LeaveLetter"]] = relationship("LeaveLetter", back_populates="barber")
 
@@ -95,11 +104,11 @@ class QueueSlots(Base):
     start_time:Mapped[time] = mapped_column(Time,nullable=False)
     end_time:Mapped[time] = mapped_column(Time,nullable=False)
     chair_id:Mapped[int] = mapped_column(ForeignKey("chairs.id"))
-    date_working:Mapped[date] = mapped_column(ForeignKey("opening_dates.date_open"),index=True)
     customer_id:Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=True)
     #AVAILABLE, BOOKED, SERVING, CANCELLED, COMPLETED
     status:Mapped[BookedStatus] = mapped_column(Enum(BookedStatus),default=BookedStatus.AVAILABLE)
     status_user:Mapped[TypeUser] = mapped_column(Enum(TypeUser),default=TypeUser.NONE)
+    date_working: Mapped[date] = mapped_column(Date, nullable=False)
     barber_working:Mapped["Barber"] = relationship("Barber", back_populates="time_working")
     barber_id: Mapped[int] = mapped_column(ForeignKey("barbers.id"))
     chair:Mapped["Chair"] = relationship(back_populates="queues")
@@ -118,7 +127,7 @@ class LeaveLetter(Base):
     report:Mapped[str] = mapped_column(String(255),nullable=False)
     date_leave:Mapped[date] = mapped_column(Date, default=date.today)
     status:Mapped[LeaveStatus] = mapped_column(Enum(LeaveStatus),default=LeaveStatus.PENDING)
-    create_at:Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    create_at:Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     barber = relationship("Barber", back_populates="leave_letter")
 
 class OpeningDate(Base):

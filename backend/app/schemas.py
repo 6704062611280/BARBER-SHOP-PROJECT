@@ -1,6 +1,8 @@
 from pydantic import BaseModel
 from datetime import datetime,date,time
 from app.model import UserRole
+from typing import Optional
+
 
 class UserCreateRegister(BaseModel):
     email: str
@@ -94,3 +96,18 @@ class UserResponsePreRegister(BaseModel):
 
     class Config:
         from_attributes = True
+
+class UserUpdateProfile(BaseModel):
+    firstname: Optional[str] = None
+    lastname: Optional[str] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    profile_img: Optional[str] = None
+
+class UserChangePassword(BaseModel):
+    old_password: str
+    new_password: str
+
+class UserChangeEmail(BaseModel):
+    new_email: str
+    otp: str

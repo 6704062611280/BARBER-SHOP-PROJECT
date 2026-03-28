@@ -1,13 +1,15 @@
 from app.security import hash_password, verify_password
-from fastapi import APIRouter,Depends,HTTPException
+from fastapi import APIRouter,Depends,HTTPException, Request
 from sqlalchemy.orm import Session
 from app.model import User,PreUser
-from app.schemas import UserResponseRegister,UserCreateRegister,UserCreateLogin,UserCreatePreRegister,UserResponsePreRegister
+from app.schemas import UserResponseRegister,UserCreateRegister,UserCreateLogin,UserCreatePreRegister,UserResponsePreRegister,UserUpdateProfile,UserChangePassword,UserChangeEmail
 from app.database import get_db
 from jose import jwt
 from datetime import datetime, timedelta, timezone
 import os
 from app.email_service import send_otp_email,generate_otp
+from app.backtask import get_current_user
+
 
 router = APIRouter(prefix="/auth",tags=["Auth"])
 
@@ -46,10 +48,10 @@ def sendOTP(email: str, db: Session = Depends(get_db)):
 def verify_otp_internal(email: str, pin: str, db: Session):
     pre_user = db.query(PreUser).filter(PreUser.email == email).first()
     if not pre_user:
-        raise HTTPException(status_code=401, detail="ไม่พบ email")
+        raise HTTPException(status_code=404, detail="ไม่พบ email")
     if pre_user.otp_attempts >= 5:
         raise HTTPException(status_code=429, detail="พยายามมากเกินไป")
-    if pre_user.otp_expire < datetime.now(timezone.utc):
+    if not pre_user.otp_expire or pre_user.otp_expire < datetime.now(timezone.utc):
         raise HTTPException(status_code=401, detail="OTP หมดอายุ")
     if pre_user.is_verified:
         raise HTTPException(status_code=401, detail="OTP ถูกยืนยันไปแล้ว")
@@ -145,3 +147,98 @@ def pre_register(user: UserCreatePreRegister, db:Session = Depends(get_db)):
 
 
    return new_user
+
+@router.get("/profile")
+def get_profile(current_user: User = Depends(get_current_user)):
+    return {
+        "username": current_user.username,
+        "email": current_user.email
+    }
+
+@router.patch("/edit_profile")
+def edit_profile(
+    user_update: UserUpdateProfile,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    if user_update.firstname is not None:
+        current_user.firstname = user_update.firstname
+
+    if user_update.lastname is not None:
+        current_user.lastname = user_update.lastname
+
+    if user_update.phone is not None:
+        current_user.phone = user_update.phone
+    
+    if user_update.profile_img is not None:
+        current_user.profile_img = user_update.profile_img
+
+    db.commit()
+    db.refresh(current_user)
+
+    return {
+        "message": "Profile updated successfully",
+        "user": {
+            "username": current_user.username,
+            "firstname": current_user.firstname,
+            "lastname": current_user.lastname,
+            "phone": current_user.phone,
+            "profile_img" : current_user.profile_img
+        }
+    }
+
+@router.patch("/change_email")
+def change_email(
+    data: UserChangeEmail,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    # เช็ค email ซ้ำ
+    exist_email = db.query(User).filter(User.email == data.new_email).first()
+    if exist_email:
+        raise HTTPException(status_code=400, detail="Email นี้ถูกใช้แล้ว")
+
+    # หา pre_user (ใช้เป็น temp เก็บ OTP)
+    pre_user = db.query(PreUser).filter(PreUser.email == data.new_email).first()
+    if not pre_user:
+        raise HTTPException(status_code=400, detail="กรุณาขอ OTP ก่อน")
+
+    # verify OTP
+    verify_otp_internal(data.new_email, data.otp, db)
+
+    # update email
+    current_user.email = data.new_email
+
+    # ลบ pre_user
+    db.delete(pre_user)
+
+    db.commit()
+
+    return {"message": "เปลี่ยน email สำเร็จ"}
+
+
+@router.patch("/change_password")
+def change_password(
+    data: UserChangePassword,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    # เช็ครหัสเดิม
+    if not verify_password(data.old_password, current_user.password_hash):
+        raise HTTPException(status_code=400, detail="รหัสผ่านเดิมไม่ถูกต้อง")
+
+    # กันตั้งรหัสซ้ำ
+    if verify_password(data.new_password, current_user.password_hash):
+        raise HTTPException(status_code=400, detail="ห้ามใช้รหัสเดิม")
+
+    # อัปเดต
+    current_user.password_hash = hash_password(data.new_password)
+
+    db.commit()
+
+    return {"message": "เปลี่ยนรหัสผ่านสำเร็จ"}
+
+
+@router.patch("/reset_password")
+def resetPassword():
+    pass
