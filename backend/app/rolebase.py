@@ -1,11 +1,29 @@
 from fastapi import Depends
-from app.model import UserRole
+from app.model import UserRole, User
 from app.auth import get_current_user
 from fastapi import APIRouter,Depends,HTTPException
+from app.backtask import get_current_user
+from typing import List
 
-def require_role(role: UserRole):
-    def role_checker(user = Depends(get_current_user)):
-        if user.rolestatus != role:
+BARBER_ROLES = [
+    UserRole.OWNER,
+    UserRole.EMPLOYEE
+]
+
+def require_roles(roles: List[UserRole]):
+    def checker(user: User = Depends(get_current_user)):
+        if user.rolestatus not in roles:
             raise HTTPException(status_code=403, detail="Unauthorized")
         return user
-    return role_checker
+    return checker
+
+def require_barber():
+    def checker(user: User = Depends(get_current_user)):
+        if user.rolestatus not in [UserRole.OWNER, UserRole.EMPLOYEE]:
+            raise HTTPException(status_code=403, detail="Not barber")
+
+        if not user.barber:
+            raise HTTPException(status_code=403, detail="No barber profile")
+
+        return user
+    return checker

@@ -74,7 +74,7 @@ class PreUser(Base):
     otp_expire:Mapped[datetime] = mapped_column(DateTime(timezone=True),nullable=True)
     otp_attempts:Mapped[int] = mapped_column(Integer,default=0)
     is_verified:Mapped[bool] = mapped_column(Boolean, default=False)
-
+    UniqueConstraint("email", "purpose", name="uq_email_purpose")
 
 class Barber(Base):
     __tablename__ = "barbers"
@@ -139,3 +139,14 @@ class OpeningDate(Base):
     is_open: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     chairs:Mapped[list["Chair"]] = relationship("Chair", back_populates="opening_date")
     
+class RefreshToken(Base):
+    __tablename__ = "refresh_tokens"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    token_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    is_revoked: Mapped[bool] = mapped_column(Boolean, default=False)
+    jti = Column(String, unique=True, index=True)
+    
+    user = relationship("User")
