@@ -20,15 +20,29 @@ def assign_chair(
     user: User = Depends(require_roles([UserRole.OWNER])),
     db: Session = Depends(get_db),
 ):
+    # ---------------------------
+    # 1. load chair
+    # ---------------------------
     chair = db.query(Chair).filter(Chair.id == chair_id).first()
     if not chair:
         raise HTTPException(404, "Chair not found")
 
+    # ---------------------------
+    # 2. load barber
+    # ---------------------------
     barber = db.query(Barber).filter(Barber.id == barber_id).first()
     if not barber:
         raise HTTPException(404, "Barber not found")
 
-    # ❗ กัน barber มีหลายเก้าอี้ (optional rule)
+    # ---------------------------
+    # 3. กัน assign ซ้ำเก้าอี้
+    # ---------------------------
+    if chair.barber_id is not None:
+        raise HTTPException(400, "Chair already assigned")
+
+    # ---------------------------
+    # 4. กัน barber มีหลายเก้าอี้
+    # ---------------------------
     existing = db.query(Chair).filter(
         Chair.barber_id == barber_id
     ).first()
@@ -36,6 +50,9 @@ def assign_chair(
     if existing:
         raise HTTPException(400, "Barber already has a chair")
 
+    # ---------------------------
+    # 5. assign
+    # ---------------------------
     chair.barber_id = barber_id
 
     try:
@@ -50,3 +67,30 @@ def assign_chair(
         "chair_id": chair.id,
         "barber_id": barber_id
     }
+
+@router.post("/unassign_chair")
+def unassign_chair(
+    chair_id: int,
+    user: User = Depends(require_roles([UserRole.OWNER])),
+    db: Session = Depends(get_db),
+):
+    chair = db.query(Chair).filter(Chair.id == chair_id).first()
+    if not chair:
+        raise HTTPException(404, "Chair not found")
+
+    if chair.barber_id is None:
+        raise HTTPException(400, "Chair is already empty")
+
+    chair.barber_id = None
+
+    try:
+        db.commit()
+    except:
+        db.rollback()
+        raise HTTPException(500, "Database error")
+
+    return {"message": "Chair unassigned"}
+
+@router.patch("/leave_letter")
+def leaveLetter():
+    pass
