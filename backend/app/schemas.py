@@ -43,7 +43,6 @@ class QueueResponse(BaseModel):
     start_time: time
     end_time: time
     chair_id: int
-    barber_id: Optional[int]
     customer_id: Optional[int]
     date_working: date
     status: BookedStatus

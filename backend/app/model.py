@@ -17,11 +17,6 @@ class PreUserStatus(enum.Enum):
     REGISTER = "REGISTER"
     RESET_PASSWORD = "RESET_PASSWORD"
 
-class ChairStatus(enum.Enum):
-    AVAILABLE = "AVAILABLE"
-    OCCUPIED = "OCCUPIED"
-    FULL = "FULL"
-    CLOSED = "CLOSED"
 
 class TypeUser(enum.Enum):
     WALK_IN = "WALK_IN"
@@ -74,7 +69,9 @@ class PreUser(Base):
     otp_expire:Mapped[datetime] = mapped_column(DateTime(timezone=True),nullable=True)
     otp_attempts:Mapped[int] = mapped_column(Integer,default=0)
     is_verified:Mapped[bool] = mapped_column(Boolean, default=False)
-    UniqueConstraint("email", "purpose", name="uq_email_purpose")
+    __table_args__ = (
+    UniqueConstraint("email", "purpose", name="uq_email_purpose"),
+)
 
 class Barber(Base):
     __tablename__ = "barbers"
@@ -82,7 +79,6 @@ class Barber(Base):
     id:Mapped[int] = mapped_column(primary_key=True)
     user_id:Mapped[int] = mapped_column(ForeignKey("users.id"))
     user_data:Mapped["User"] = relationship("User", back_populates="barber")
-    time_working:Mapped[list["QueueSlots"]] = relationship("QueueSlots",  back_populates="barber_working")
     leave_letter:Mapped[list["LeaveLetter"]] = relationship("LeaveLetter", back_populates="barber")
 
 
@@ -92,10 +88,7 @@ class Chair(Base):
 
     id:Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
-    date_working:Mapped[date] = mapped_column(ForeignKey("opening_dates.date_open"))
     queues:Mapped[list["QueueSlots"]] = relationship("QueueSlots",back_populates="chair")
-    status:Mapped[ChairStatus] =  mapped_column(Enum(ChairStatus),default=ChairStatus.AVAILABLE)
-    opening_date: Mapped["OpeningDate"] = relationship(back_populates="chairs")
 
 class QueueSlots(Base):
     __tablename__ = "queue_slots"
@@ -104,13 +97,14 @@ class QueueSlots(Base):
     start_time:Mapped[time] = mapped_column(Time,nullable=False)
     end_time:Mapped[time] = mapped_column(Time,nullable=False)
     chair_id:Mapped[int] = mapped_column(ForeignKey("chairs.id"))
-    customer_id:Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=True)
+    customer_id:Mapped[int | None] = mapped_column(
+    ForeignKey("users.id", ondelete="SET NULL"),
+    nullable=True
+)
     #AVAILABLE, BOOKED, SERVING, CANCELLED, COMPLETED
     status:Mapped[BookedStatus] = mapped_column(Enum(BookedStatus),default=BookedStatus.AVAILABLE)
     status_user:Mapped[TypeUser] = mapped_column(Enum(TypeUser),default=TypeUser.NONE)
     date_working: Mapped[date] = mapped_column(Date, nullable=False)
-    barber_working:Mapped["Barber"] = relationship("Barber", back_populates="time_working")
-    barber_id: Mapped[int] = mapped_column(ForeignKey("barbers.id"), nullable=True)
     chair:Mapped["Chair"] = relationship(back_populates="queues")
     customer:Mapped["User"] = relationship(back_populates="queues")
     __table_args__ = (UniqueConstraint("chair_id", "date_working", "start_time"),CheckConstraint("end_time > start_time")
@@ -130,14 +124,15 @@ class LeaveLetter(Base):
     create_at:Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     barber = relationship("Barber", back_populates="leave_letter")
 
-class OpeningDate(Base):
-    __tablename__ = "opening_dates"
+class Shop(Base):
+    __tablename__ = "shop"
 
-    date_open: Mapped[date] = mapped_column(default=date.today, nullable=False,primary_key=True,index=True)
-    open_time:Mapped[time] = mapped_column(Time,nullable=False)
-    close_time:Mapped[time] = mapped_column(Time,nullable=False)
-    is_open: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
-    chairs:Mapped[list["Chair"]] = relationship("Chair", back_populates="opening_date")
+    id = mapped_column(primary_key=True)
+    is_open = mapped_column(Boolean, default=False)
+    open_time = mapped_column(Time)
+    close_time = mapped_column(Time)
+    current_date = mapped_column(Date)
+
     
 class RefreshToken(Base):
     __tablename__ = "refresh_tokens"
