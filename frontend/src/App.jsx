@@ -13,6 +13,8 @@ import QueueTable from "./component/QueuesPage"
 import Shopsetting from "./component/ShopSetting"
 import CustomWeb from "./component/CustomWebPage"
 import Notification from "./component/NotificationPage"
+import EditProfilePage from "./component/EditProfilePage"
+import LeaveLetter from "./component/LeaveLetterPage"
 import './App.css'
 import { useState } from "react"
 import Layout from "./component/Layout"
@@ -30,7 +32,10 @@ function App() {
        <Route path="/chair" element={<ChairPage/>}/>
        <Route path="/booked-table" element={<BookedTable/>}/>
        <Route path="/reset-password" element={<ResetPassword/>}/>
+       <Route path="/edit-profile" element={<EditProfilePage/>}/>
        <Route path="/queues-table" element={<QueueTable/>}/>
+       <Route path="/notification" element={<Notification/>} />
+       <Route path="/leave-letter" element={<LeaveLetter/>} />
        <Route element={<RequireRole allowRoles={["CUSTOMER"]} />}>
         </Route>
        <Route element={<RequireRole allowRoles={["EMPLOYEE"]} />}>
@@ -38,8 +43,10 @@ function App() {
         </Route>
         <Route element={<RequireRole allowRoles={["OWNER"]} />}>
           <Route path="/dashboard" element={<DashBoard/>} />
-          <Route path="/manage-user" element={<ManageUser />} />
+          <Route path="/manage-user" element={<ManageUser/>} />
         </Route>
+        {/* temporary test route - remove once your user flow works */}
+        <Route path="/test-manage-user" element={<ManageUser/>} />
      </Route>
     </Routes>
   
