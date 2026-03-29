@@ -99,31 +99,42 @@ def bookedQueuesByCustomer(
         raise HTTPException(500, "Database error")
     return queue
 
-@router.post("/barber/{chair_id}/queues/{queue_id}/booked", response_model=QueueResponse)
+@router.post("/chairs/{chair_id}/queues/{queue_id}/booked", response_model=QueueResponse)
 def bookedQueuesByBarber(
-    chair_id:int,
-    queue_id:int,
+    chair_id: int,
+    queue_id: int,
     user: User = Depends(require_barber()),
     db: Session = Depends(get_db)
 ):
     chair = db.query(Chair).filter(Chair.id == chair_id).first()
     if not chair:
         raise HTTPException(404, "Chair not found")
-    queue = get_queue_or_404(db,queue_id)
+
+    # ✅ เช็ค ownership
+    if chair.barber_id != user.barber.id:
+        raise HTTPException(403, "Not your chair")
+
+    queue = get_queue_or_404(db, queue_id)
+
     if queue.chair_id != chair_id:
         raise HTTPException(400, "Queue not in this chair")
+
     if queue.status != BookedStatus.AVAILABLE:
         raise HTTPException(400, "Slot not available")
+
     validate_transition(queue.status, BookedStatus.BOOKED)
+
     queue.customer_id = None
     queue.status = BookedStatus.BOOKED
     queue.status_user = TypeUser.WALK_IN
+
     try:
-      db.commit()
-      db.refresh(queue)
+        db.commit()
+        db.refresh(queue)
     except:
-      db.rollback()
-      raise HTTPException(500, "Database error")
+        db.rollback()
+        raise HTTPException(500, "Database error")
+
     return queue
 
 
@@ -168,23 +179,27 @@ def cancelByCustomer(
 
     return queue
 
-@router.post("/barber/{chair_id}/queues/{queue_id}/cancel")
+@router.post("/chairs/{chair_id}/queues/{queue_id}/cancel")
 def cancelByBarber(
     chair_id: int,
     queue_id: int,
     user: User = Depends(require_barber()),
     db: Session = Depends(get_db)
 ):
-    # 🔹 check chair
     chair = db.query(Chair).filter(Chair.id == chair_id).first()
     if not chair:
-        raise HTTPException(status_code=404, detail="Chair not found")
+        raise HTTPException(404, "Chair not found")
+
+    # ✅ ownership
+    if chair.barber_id != user.barber.id:
+        raise HTTPException(403, "Not your chair")
+
     queue = get_queue_or_404(db, queue_id)
-    # 🔹 ensure queue belongs to chair
+
     if queue.chair_id != chair_id:
         raise HTTPException(400, "Queue not in this chair")
-    # 🔹 state check
-    if queue.status not in [BookedStatus.BOOKED]:
+
+    if queue.status != BookedStatus.BOOKED:
         raise HTTPException(400, "Cannot cancel this queue")
 
     validate_transition(queue.status, BookedStatus.CANCELLED)
@@ -202,29 +217,26 @@ def cancelByBarber(
 
     return {"message": "Queue cancelled"}
 
-@router.post("/barber/{chair_id}/queues/{queue_id}/checkin")
+@router.post("/chairs/{chair_id}/queues/{queue_id}/checkin")
 def checkin(
     chair_id: int,
     queue_id: int,
     user: User = Depends(require_barber()),
     db: Session = Depends(get_db)
 ):
-    # 🔹 check chair
     chair = db.query(Chair).filter(Chair.id == chair_id).first()
     if not chair:
-        raise HTTPException(status_code=404, detail="Chair not found")
+        raise HTTPException(404, "Chair not found")
 
-    # 🔹 check ownership
+    # ✅ ownership
     if chair.barber_id != user.barber.id:
-        raise HTTPException(status_code=403, detail="Not your chair")
+        raise HTTPException(403, "Not your chair")
 
     queue = get_queue_or_404(db, queue_id)
 
-    # 🔹 ensure queue belongs to chair
     if queue.chair_id != chair_id:
         raise HTTPException(400, "Queue not in this chair")
 
-    # 🔹 state check
     if queue.status != BookedStatus.BOOKED:
         raise HTTPException(400, "Only booked queue can check in")
 
@@ -241,29 +253,26 @@ def checkin(
 
     return {"message": "Customer checked in"}
 
-@router.post("/barber/{chair_id}/queues/{queue_id}/complete")
+@router.post("/chairs/{chair_id}/queues/{queue_id}/complete")
 def complete(
     chair_id: int,
     queue_id: int,
     user: User = Depends(require_barber()),
     db: Session = Depends(get_db)
 ):
-    # 🔹 check chair
     chair = db.query(Chair).filter(Chair.id == chair_id).first()
     if not chair:
-        raise HTTPException(status_code=404, detail="Chair not found")
+        raise HTTPException(404, "Chair not found")
 
-    # 🔹 check ownership
+    # ✅ ownership
     if chair.barber_id != user.barber.id:
-        raise HTTPException(status_code=403, detail="Not your chair")
+        raise HTTPException(403, "Not your chair")
 
     queue = get_queue_or_404(db, queue_id)
 
-    # 🔹 ensure queue belongs to chair
     if queue.chair_id != chair_id:
         raise HTTPException(400, "Queue not in this chair")
 
-    # 🔹 state check
     if queue.status != BookedStatus.CHECKIN:
         raise HTTPException(400, "Only checked-in queue can be completed")
 
@@ -277,6 +286,7 @@ def complete(
     except:
         db.rollback()
         raise HTTPException(500, "Database error")
+
     return {"message": "Service completed"}
 
 @router.post("/open_shop")
@@ -287,6 +297,15 @@ def open_shop(
 ):
     today = date.today()
 
+    # ---------------------------
+    # 1. VALIDATE INPUT
+    # ---------------------------
+    if interval_minutes <= 0:
+        raise HTTPException(400, "Invalid interval")
+
+    # ---------------------------
+    # 2. LOAD OPENING CONFIG
+    # ---------------------------
     opening = db.query(OpeningDate).filter(
         OpeningDate.date_open == today
     ).first()
@@ -297,18 +316,32 @@ def open_shop(
     if not opening.is_open:
         raise HTTPException(400, "Shop is closed today")
 
-    # 🔴 กันเปิดซ้ำ
+    if opening.open_time >= opening.close_time:
+        raise HTTPException(400, "Invalid opening hours")
+
+    # ---------------------------
+    # 3. CHECK ALREADY OPENED
+    # ---------------------------
     already = db.query(QueueSlots).filter(
         QueueSlots.date_working == today
     ).first()
 
     if already:
-        raise HTTPException(400, "Shop already opened (queues exist)")
+        raise HTTPException(400, "Shop already opened")
 
-    chairs = db.query(Chair).all()
+    # ---------------------------
+    # 4. GET ACTIVE CHAIRS (🔥 ตรงนี้แหละที่คุณงง)
+    # ---------------------------
+    chairs = db.query(Chair).filter(
+        Chair.barber_id.isnot(None)   # ✅ สำคัญ
+    ).all()
+
     if not chairs:
-        raise HTTPException(400, "No chairs")
+        raise HTTPException(400, "No active chairs (assign barber first)")
 
+    # ---------------------------
+    # 5. GENERATE QUEUE
+    # ---------------------------
     new_slots = []
     created = 0
 
@@ -335,6 +368,9 @@ def open_shop(
 
         current = next_time
 
+    # ---------------------------
+    # 6. SAVE
+    # ---------------------------
     try:
         db.bulk_save_objects(new_slots)
         db.commit()
@@ -359,9 +395,10 @@ def close_shop(
         QueueSlots.date_working == today,
         QueueSlots.status == BookedStatus.AVAILABLE
     ).update({
-        "status": BookedStatus.CANCELLED
+        "status": BookedStatus.AVAILABLE
     })
 
     db.commit()
 
     return {"message": "Shop closed"}
+

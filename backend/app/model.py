@@ -87,7 +87,7 @@ class Chair(Base):
     __tablename__ = "chairs"
 
     id:Mapped[int] = mapped_column(primary_key=True)
-    name: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
+    name = mapped_column(String(50), nullable=False)
     queues:Mapped[list["QueueSlots"]] = relationship("QueueSlots",back_populates="chair")
 
 class QueueSlots(Base):
@@ -124,14 +124,14 @@ class LeaveLetter(Base):
     create_at:Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     barber = relationship("Barber", back_populates="leave_letter")
 
-class Shop(Base):
-    __tablename__ = "shop"
+class OpeningDate(Base):
+    __tablename__ = "opening_date"
 
     id = mapped_column(primary_key=True)
     is_open = mapped_column(Boolean, default=False)
-    open_time = mapped_column(Time)
-    close_time = mapped_column(Time)
-    current_date = mapped_column(Date)
+
+    open_time = mapped_column(Time, nullable=False)
+    close_time = mapped_column(Time, nullable=False)
 
     
 class RefreshToken(Base):
