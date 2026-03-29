@@ -17,6 +17,12 @@ export function DataProvider({ children }) {
   const [promoSlides, setPromoSlides] = useState(["/images/slide2.jpg"]);
   const [announcementText, setAnnouncementText] = useState("ใส่ข้อมูลร้านตรงนี้...");
 
+  // State สำหรับจัดการคิวของลูกค้า
+  const [bookedQueues, setBookedQueues] = useState([
+      // ตัวอย่างข้อมูลจำลอง (Mock Data) ถ้าไม่อยากให้มีคิวเลย ก็ลบข้างในให้เหลือแค่ [] ได้ครับ
+      { id: 1, code: "Q-001", time: "10:00 - 11:00", date: "12 ต.ค. 2026" }
+  ]);
+
   useEffect(()=>{
     const token = localStorage.getItem("token")
     if(token){
@@ -35,11 +41,12 @@ export function DataProvider({ children }) {
   return (
     <DataContext.Provider value={{  
         role, userId, islogin, setRole, setIsLogin, username, setUsername,
-        
-        // อย่าลืมส่งตัวแปรและฟังก์ชันสำหรับตั้งค่าเว็บออกไปให้ไฟล์อื่นใช้ด้วย!
         heroSlides, setHeroSlides,
         promoSlides, setPromoSlides,
-        announcementText, setAnnouncementText
+        announcementText, setAnnouncementText,
+        
+        // 🌟 ส่งตัวแปรคิวออกไปให้ ViewBookedPage ใช้งาน
+        bookedQueues, setBookedQueues
     }}>
         {children}
     </DataContext.Provider>

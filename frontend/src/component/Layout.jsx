@@ -7,8 +7,10 @@ export default function Layout() {
   const navigate = useNavigate()
   const location = useLocation()
   
-  // เพิ่มการดึง username มาจาก DataContext (ถ้ายังไม่มีในระบบ จะใช้ค่าเริ่มต้นว่า "ชื่อผู้ใช้งาน" แทนไปก่อน)
   const { role, islogin, setIsLogin, setRole, username } = useContext(DataContext)
+
+  // ให้ Navbar รู้จัก currentRole เสมอ
+  const currentRole = role ? role.toUpperCase() : '';
   
   const [isPopupOpen, setIsPopupOpen] = useState(false);
   const popupRef = useRef();
@@ -39,9 +41,7 @@ export default function Layout() {
     navigate(path);
   }
 
-  // --- 1. จัดการรูปโปรไฟล์ (ก่อน Login ใช้ไอคอนเดิม, หลัง Login ใช้รูปตาม Role) ---
   const renderNavProfileIcon = () => {
-    // ถ้ายังไม่ login ให้แสดงไอคอนเก่า (Guest)
     if (!islogin) {
       return (
         <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-black" viewBox="0 0 20 20" fill="currentColor">
@@ -50,20 +50,15 @@ export default function Layout() {
       );
     }
 
-    // ถ้า Login แล้ว ให้แสดงตาม Role
-    const currentRole = role ? role.toUpperCase() : '';
     if (currentRole === 'OWNER') return <img src="/images/icon-owner.png" alt="Owner Profile" className="w-full h-full object-cover" />;
     if (currentRole === 'EMPLOYEE') return <img src="/images/icon-employee.png" alt="Employee Profile" className="w-full h-full object-cover" />;
     if (currentRole === 'CUSTOMER') return <img src="/images/icon-customer.png" alt="Customer Profile" className="w-full h-full object-cover" />;
     
-    // กรณีฉุกเฉินหา Role ไม่เจอ
     return <img src="/images/icon-customer.png" alt="Profile" className="w-full h-full object-cover" />;
   }
 
-  // --- เมนู Popup ตาม Role ---
   const renderPopupMenuItems = () => {
     const menuItemClass = "flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-orange-50 w-full text-left transition-colors duration-150 font-medium";
-    const currentRole = role ? role.toUpperCase() : '';
 
     if (currentRole === 'CUSTOMER') {
       return (
@@ -122,7 +117,6 @@ export default function Layout() {
     return null;
   }
 
-  // สไตล์เมนู Navbar (สีส้มเมื่อ Active แต่ไม่เปลี่ยนขนาด)
   const navLinkClass = "text-black hover:text-[#ff9c2f] font-semibold transition-colors cursor-pointer";
   const activeNavLinkClass = "text-[#ff9c2f] font-semibold transition-colors cursor-pointer";
 
@@ -147,12 +141,26 @@ export default function Layout() {
         <nav className="flex-1 hidden md:flex justify-center items-center gap-6">
           <button onClick={() => navigate("/")} className={getLinkStyle("/")}>หน้าแรก</button>
           <span className="text-gray-400 font-light">|</span>
-          <button onClick={() => navigate("/chair")} className={getLinkStyle("/chair")}>จองคิว</button>
           
-          {(!islogin || (role && role.toUpperCase() === 'CUSTOMER')) && (
+          {/* ปุ่มจองคิว */}
+          <button 
+            onClick={() => navigate(currentRole === 'EMPLOYEE' || currentRole === 'OWNER' ? "/working-table" : "/chair")} 
+            className={getLinkStyle(currentRole === 'EMPLOYEE' || currentRole === 'OWNER' ? "/working-table" : "/chair")}
+          >
+            จองคิว
+          </button>
+          
+          {/* 🌟 ปุ่มสถานะคิว (แสดงเฉพาะ Guest หรือ Customer) */}
+          {(!islogin || currentRole === 'CUSTOMER') && (
             <>
               <span className="text-gray-400 font-light">|</span>
-              <button onClick={() => navigate("/queues-table")} className={getLinkStyle("/queues-table")}>สถานะคิว</button>
+              <button 
+                // ✅ ถ้าเป็น Guest ให้ไปหน้า /login, ถ้า Login แล้วเป็น Customer ให้ไปหน้า /booked-table
+                onClick={() => navigate(!islogin ? "/login" : "/booked-table")} 
+                className={getLinkStyle("/booked-table")}
+              >
+                สถานะคิว
+              </button>
             </>
           )}
         </nav>
@@ -177,7 +185,6 @@ export default function Layout() {
                     {renderNavProfileIcon()}
                  </div>
                  <div className="flex flex-col text-left">
-                    {/* 2. เปลี่ยนคำว่าเป็นชื่อบัญชี username (ดึงจาก DataContext) */}
                     <span className="font-bold text-gray-800">{username || "ชื่อผู้ใช้งาน"}</span>
                     <span className="text-xs text-gray-500 uppercase tracking-wider">{role}</span>
                  </div>
@@ -213,7 +220,7 @@ export default function Layout() {
         </div>
       </div>
 
-      {/* --- Footer (เอาโครงสร้างจาก Layout เก่า แต่ใส่ Icon รูปภาพแทน) --- */}
+      {/* --- Footer --- */}
       <footer className="bg-[#5D4037] text-white py-10 px-8 md:px-24 flex flex-col md:flex-row justify-between items-start gap-8 z-30 relative">
         <div>
           <h3 className="font-bold mb-3 text-lg flex items-center gap-2">
