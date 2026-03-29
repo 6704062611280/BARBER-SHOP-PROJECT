@@ -3,12 +3,8 @@ from datetime import datetime,date,time
 from app.model import UserRole
 
 class UserCreateRegister(BaseModel):
-    username:str
-    password:str
-    firstname:str
-    lastname: str|None = None
     email: str
-    phone: str
+    otp: str
 
 
 class UserResponseRegister(BaseModel):
@@ -21,6 +17,7 @@ class UserResponseRegister(BaseModel):
     phone: str
     create_at: datetime
     update_at: datetime
+    
 
     class Config:
         from_attributes = True
@@ -72,6 +69,28 @@ class OpenDateResponse(BaseModel):
     start_time:time
     end_time:time
     is_open: bool
+
+    class Config:
+        from_attributes = True
+
+class UserCreatePreRegister(BaseModel):
+    username:str
+    password:str
+    firstname:str
+    lastname: str|None = None
+    email: str
+    phone: str
+
+class UserResponsePreRegister(BaseModel):
+    id:int
+    username:str
+    firstname:str
+    lastname: str|None = None
+    rolestatus: UserRole
+    email: str
+    phone: str
+    is_verified: bool
+    
 
     class Config:
         from_attributes = True
