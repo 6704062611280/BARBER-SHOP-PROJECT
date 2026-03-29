@@ -15,6 +15,7 @@ import CustomWeb from "./component/CustomWebPage"
 import Notification from "./component/NotificationPage"
 import EditProfilePage from "./component/EditProfilePage"
 import LeaveLetter from "./component/LeaveLetterPage"
+import ChangePasswordPage from "./component/ChangePasswordPage"
 import './App.css'
 import { useState } from "react"
 import Layout from "./component/Layout"
@@ -33,6 +34,7 @@ function App() {
        <Route path="/booked-table" element={<BookedTable/>}/>
        <Route path="/reset-password" element={<ResetPassword/>}/>
        <Route path="/edit-profile" element={<EditProfilePage/>}/>
+       <Route path="/change-password" element={<ChangePasswordPage />} />
        <Route path="/queues-table" element={<QueueTable/>}/>
        <Route path="/notification" element={<Notification/>} />
        <Route path="/leave-letter" element={<LeaveLetter/>} />

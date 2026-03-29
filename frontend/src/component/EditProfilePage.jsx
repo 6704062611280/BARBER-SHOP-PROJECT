@@ -9,12 +9,10 @@ export default function EditProfilePage(){
     lastName: "",
     username: "",
     phone: "",
-    email: "",
     currentPassword: ""
   })
 
   const [showPasswordConfirm, setShowPasswordConfirm] = useState(false)
-  const [showPasswordSuccess, setShowPasswordSuccess] = useState(false)
   const [showSaveSuccess, setShowSaveSuccess] = useState(false)
 
   const handleChange = (field, value) => {
@@ -32,12 +30,11 @@ export default function EditProfilePage(){
   }
 
   const handleChangePassword = () => {
-    setShowPasswordSuccess(true)
+    navigate("/change-password")
   }
 
   const closeModals = () => {
     setShowPasswordConfirm(false)
-    setShowPasswordSuccess(false)
     setShowSaveSuccess(false)
   }
 
@@ -93,16 +90,6 @@ export default function EditProfilePage(){
             />
           </div>
 
-          <div className="field">
-            <label>อีเมล</label>
-            <input
-              type="email"
-              value={form.email}
-              onChange={(e) => handleChange("email", e.target.value)}
-              placeholder="Example@gmail.com"
-            />
-          </div>
-
           <div className="button-row">
             <button type="button" className="orange-button" onClick={handleChangePassword}>
               แก้ไขรหัสผ่าน
@@ -132,17 +119,6 @@ export default function EditProfilePage(){
                 ยืนยัน
               </button>
             </div>
-          </div>
-        </div>
-      )}
-
-      {showPasswordSuccess && (
-        <div className="modal-overlay" onClick={closeModals}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <h3>เปลี่ยนแปลงรหัสผ่านสำเร็จแล้ว</h3>
-            <button className="confirm" onClick={closeModals}>
-              เสร็จสิ้น
-            </button>
           </div>
         </div>
       )}
