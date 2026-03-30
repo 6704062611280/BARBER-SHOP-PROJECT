@@ -77,7 +77,10 @@ class Barber(Base):
     __tablename__ = "barbers"
 
     id:Mapped[int] = mapped_column(primary_key=True)
-    user_id:Mapped[int] = mapped_column(ForeignKey("users.id"))
+    user_id:Mapped[int] = mapped_column(
+    ForeignKey("users.id"),
+    unique=True
+)
     user_data:Mapped["User"] = relationship("User", back_populates="barber")
     leave_letter:Mapped[list["LeaveLetter"]] = relationship("LeaveLetter", back_populates="barber")
 
@@ -89,6 +92,11 @@ class Chair(Base):
     id:Mapped[int] = mapped_column(primary_key=True)
     name = mapped_column(String(50), nullable=False)
     queues:Mapped[list["QueueSlots"]] = relationship("QueueSlots",back_populates="chair")
+    barber_id:Mapped[int | None] = mapped_column(
+    ForeignKey("barbers.id"),
+    nullable=True
+)
+barber = relationship("Barber")
 
 class QueueSlots(Base):
     __tablename__ = "queue_slots"

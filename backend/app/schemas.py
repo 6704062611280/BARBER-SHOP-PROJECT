@@ -1,6 +1,6 @@
 from pydantic import BaseModel,EmailStr, Field
 from datetime import datetime,date,time
-from app.model import UserRole,BookedStatus,TypeUser
+from app.model import UserRole,BookedStatus,TypeUser,LeaveStatus
 from typing import Optional
 
 
@@ -114,4 +114,13 @@ class UserChangeEmail(BaseModel):
     new_email: str
     otp: str
 
-    
+class LetterCreate(BaseModel):
+    report:str
+    date_leave:date
+
+class LetterResponse(BaseModel):
+    barber_id:int
+    report:str
+    date_leave:date
+    create_at:datetime
+    status:LeaveStatus
