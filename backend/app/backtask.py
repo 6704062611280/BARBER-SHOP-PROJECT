@@ -17,7 +17,7 @@ def create_tasks(app: FastAPI):
  
     @app.on_event("startup")
     @repeat_every(seconds=60)
-    def auto_no_show():
+    async def auto_no_show():
         """
         req: ถ้าไม่มาภายใน 5 นาทีจะยกเลิกอัตโนมัติ
         ทำงานทุก 1 นาที
@@ -55,8 +55,8 @@ def create_tasks(app: FastAPI):
 
 def create_otp_cleanup_task(app: FastAPI):
     @app.on_event("startup")
-    @repeat_every(seconds=300)   # ทุก 5 นาที (ไม่ต้องรันทุกนาที)
-    def cleanup_expired_otps():
+    @repeat_every(seconds=300)
+    async def cleanup_expired_otps():
         now = datetime.now(timezone.utc)
         with SessionLocal() as db:
             expired = db.query(PreUser).filter(

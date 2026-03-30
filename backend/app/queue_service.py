@@ -16,7 +16,8 @@ router = APIRouter(prefix="/queue_service",tags=["Queue_Service"])
 
 allowed_transitions = {
     BookedStatus.AVAILABLE: [BookedStatus.BOOKED],
-    BookedStatus.CANCELLED: [BookedStatus.BOOKED],  
+    BookedStatus.CANCELLED: [BookedStatus.BOOKED],
+    BookedStatus.NO_SHOW:   [BookedStatus.BOOKED],
     BookedStatus.BOOKED: [BookedStatus.CHECKIN, BookedStatus.CANCELLED, BookedStatus.NO_SHOW],
     BookedStatus.CHECKIN: [BookedStatus.COMPLETE],
 }
@@ -41,7 +42,7 @@ def viewChairs(dateshop:date = date.today(),db:Session = Depends(get_db)):
         raise HTTPException(status_code=400,detail="No schedule for this day")
     if not opening.is_open:
         raise HTTPException(status_code=400, detail="Shop closed")
-    chairs = opening.chairs
+    chairs = db.query(Chair).filter(Chair.barber_id.isnot(None)).all()
     return {
         "date": dateshop,
         "open_time": opening.open_time,
@@ -447,4 +448,3 @@ def view_my_queue(
         }
         for q in queues
     ]
-

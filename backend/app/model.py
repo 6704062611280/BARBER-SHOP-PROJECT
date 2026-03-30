@@ -74,7 +74,7 @@ class PreUser(Base):
     phone:Mapped[str] = mapped_column(String(50),nullable=False)
     email:Mapped[str] = mapped_column(String(50),nullable=False)
     purpose: Mapped[PreUserStatus] = mapped_column(Enum(PreUserStatus))
-    otp_code:Mapped[str] = mapped_column(String(50),nullable=True)
+    otp_code:Mapped[str] = mapped_column(String(255),nullable=True)
     otp_expire:Mapped[datetime] = mapped_column(DateTime(timezone=True),nullable=True)
     otp_attempts:Mapped[int] = mapped_column(Integer,default=0)
     is_verified:Mapped[bool] = mapped_column(Boolean, default=False)
@@ -144,11 +144,11 @@ class LeaveLetter(Base):
 class OpeningDate(Base):
     __tablename__ = "opening_date"
 
-    id = mapped_column(primary_key=True)
-    is_open = mapped_column(Boolean, default=False)
-
-    open_time = mapped_column(Time, nullable=False)
-    close_time = mapped_column(Time, nullable=False)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    date_open: Mapped[date] = mapped_column(Date, nullable=False, unique=True)
+    is_open: Mapped[bool] = mapped_column(Boolean, default=False)
+    open_time: Mapped[time] = mapped_column(Time, nullable=False)
+    close_time: Mapped[time] = mapped_column(Time, nullable=False)
 
     
 class RefreshToken(Base):
@@ -159,7 +159,7 @@ class RefreshToken(Base):
     token_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     is_revoked: Mapped[bool] = mapped_column(Boolean, default=False)
-    jti = Column(String, unique=True, index=True)
+    jti: Mapped[str] = mapped_column(String(255))
     
     user = relationship("User")
 
@@ -207,6 +207,6 @@ class ShopSetting(Base):
     line_id     : Mapped[str | None]= mapped_column(String(100))
     facebook    : Mapped[str | None]= mapped_column(String(200))
     instagram   : Mapped[str | None]= mapped_column(String(200))
-    banner_img  : Mapped[list[str] | None]= mapped_column(String(255))
-    logo_img    : Mapped[list[str] | None]= mapped_column(String(255))
+    banner_img  : Mapped[str | None]= mapped_column(String(255))
+    logo_img    : Mapped[str | None]= mapped_column(String(255))
     update_at   : Mapped[datetime]  = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

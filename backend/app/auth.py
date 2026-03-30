@@ -9,16 +9,12 @@ from datetime import datetime, timedelta, timezone
 import os
 from app.email_service import send_otp_email,generate_otp
 from app.backtask import get_current_user
-import uuid
 
 router = APIRouter(prefix="/auth",tags=["Auth"])
 
 SECRET_KEY = os.getenv("SECRET_KEY")
 ALGORITHM = os.getenv("ALGORITHM")
 ACCESS_TOKEN_EXPIRE_MINUTES = 180
-
-def create_refresh_token():
-    return str(uuid.uuid4())
 
 def create_access_token(data:dict):
  try:
@@ -38,7 +34,7 @@ def create_refresh_token():
     return secrets.token_urlsafe(64)
 
 @router.post("/send_OTP")
-def sendOTP(email: str, purpose: PreUserStatus, db: Session):
+def sendOTP(email: str, purpose: PreUserStatus, db: Session = Depends(get_db)):
     pre_user = db.query(PreUser).filter(
     PreUser.email == email,
     PreUser.purpose == purpose
@@ -138,8 +134,6 @@ def login(user: UserCreateLogin, db: Session = Depends(get_db)):
 
     refresh_token = create_refresh_token()
 
-    refresh_token = create_refresh_token()
-
     db_token = RefreshToken(
       user_id=db_user.id,
       jti=refresh_token,  # ✅ เก็บ plain token (หรือ hash ก็ได้)
@@ -160,10 +154,15 @@ def login(user: UserCreateLogin, db: Session = Depends(get_db)):
 def pre_register(user: UserCreatePreRegister, db:Session = Depends(get_db)):
    exist_user = db.query(User).filter(User.username == user.username).first()
    if exist_user :
-        raise HTTPException(status_code=401,detail="Usernameถูกใช้ไปแล้ว")
+        raise HTTPException(status_code=400,detail="Usernameถูกใช้ไปแล้ว")
    exist_email = db.query(User).filter(User.email == user.email).first()
    if exist_email:
-        raise HTTPException(status_code=401, detail="Emailนี้ถูกใช้ไปแล้ว")
+        raise HTTPException(status_code=400, detail="Emailนี้ถูกใช้ไปแล้ว")
+   exist_pre_username = db.query(PreUser).filter(
+   PreUser.username == user.username,
+   PreUser.purpose == PreUserStatus.REGISTER).first()
+   if exist_pre_username:
+        raise HTTPException(status_code=400, detail="Usernameนี้อยู่ระหว่างการสมัคร")
    exist_pre = db.query(PreUser).filter(
    PreUser.email == user.email,
    PreUser.purpose == PreUserStatus.REGISTER).first()
@@ -249,17 +248,24 @@ def change_email(
 
     # verify OTP
     verify_otp_internal(
-    data.new_email,
-    data.otp,
-    PreUserStatus.CHANGE_EMAIL,
-    db
-)
+        data.new_email,
+        data.otp,
+        PreUserStatus.CHANGE_EMAIL,
+        db
+    )
+
+    # re-fetch pre_user after verify_otp_internal committed its changes
+    pre_user = db.query(PreUser).filter(
+        PreUser.email == data.new_email,
+        PreUser.purpose == PreUserStatus.CHANGE_EMAIL
+    ).first()
 
     # update email
     current_user.email = data.new_email
 
     # ลบ pre_user
-    db.delete(pre_user)
+    if pre_user:
+        db.delete(pre_user)
 
     db.commit()
 
@@ -338,6 +344,8 @@ def reset_password(
     )
 
     user = db.query(User).filter(User.email == email).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="ไม่พบผู้ใช้")
 
     user.password_hash = hash_password(new_password)
 

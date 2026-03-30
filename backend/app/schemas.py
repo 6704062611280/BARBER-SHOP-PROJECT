@@ -68,6 +68,7 @@ class OpenDateCreate(BaseModel):
 
 
 class OpenDateResponse(BaseModel):
+    id: int
     date_open: date
     open_time: time
     close_time: time
@@ -89,11 +90,9 @@ class UserResponsePreRegister(BaseModel):
     username:str
     firstname:str
     lastname: str|None = None
-    rolestatus: UserRole
     email: EmailStr
     phone: str
     is_verified: bool
-    
 
     class Config:
         from_attributes = True

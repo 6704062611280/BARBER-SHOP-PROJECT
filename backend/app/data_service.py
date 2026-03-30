@@ -330,12 +330,14 @@ def leave_summary(
     today = ref_date or date.today()
     base  = db.query(LeaveLetter)
     if period == "week":
-        s, e = _week_range(today);   base = base.filter(LeaveLetter.date_leave.between(s, e))
+        start_d, end_d = _week_range(today)
+        base = base.filter(LeaveLetter.date_leave.between(start_d, end_d))
     elif period == "month":
-        s, e = _month_range(today);  base = base.filter(LeaveLetter.date_leave.between(s, e))
+        start_d, end_d = _month_range(today)
+        base = base.filter(LeaveLetter.date_leave.between(start_d, end_d))
  
     rows    = base.with_entities(LeaveLetter.status, func.count(LeaveLetter.id)).group_by(LeaveLetter.status).all()
-    summary = {s.value: 0 for s in LeaveStatus}
+    summary = {st.value: 0 for st in LeaveStatus}
     for status, cnt in rows:
         summary[status.value] = cnt
  
@@ -505,6 +507,19 @@ def get_notifications(
     return q.order_by(Notification.create_at.desc()).limit(50).all()
  
  
+@router.patch("/notifications/read_all")
+def mark_all_read(
+    user: User = Depends(get_current_user),
+    db  : Session = Depends(get_db),
+):
+    db.query(Notification).filter(
+        Notification.user_id == user.id,
+        Notification.is_read == False,
+    ).update({"is_read": True})
+    db.commit()
+    return {"ok": True}
+
+
 @router.patch("/notifications/{notif_id}/read")
 def mark_read(
     notif_id: int,
@@ -518,19 +533,6 @@ def mark_read(
     if not n:
         raise HTTPException(404, "Not found")
     n.is_read = True
-    db.commit()
-    return {"ok": True}
- 
- 
-@router.patch("/notifications/read_all")
-def mark_all_read(
-    user: User = Depends(get_current_user),
-    db  : Session = Depends(get_db),
-):
-    db.query(Notification).filter(
-        Notification.user_id == user.id,
-        Notification.is_read == False,
-    ).update({"is_read": True})
     db.commit()
     return {"ok": True}
  
