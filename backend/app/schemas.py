@@ -1,6 +1,6 @@
 from pydantic import BaseModel,EmailStr, Field
 from datetime import datetime,date,time
-from app.model import UserRole,BookedStatus,TypeUser,LeaveStatus
+from app.model import UserRole,BookedStatus,TypeUser,LeaveStatus,NotificationType
 from typing import Optional
 
 
@@ -119,8 +119,60 @@ class LetterCreate(BaseModel):
     date_leave:date
 
 class LetterResponse(BaseModel):
+    id: int   
     barber_id:int
     report:str
     date_leave:date
     create_at:datetime
     status:LeaveStatus
+
+# ═══════════════════════════════════════════
+# SHOP SETTING
+# ═══════════════════════════════════════════
+ 
+class ShopSettingUpdate(BaseModel):
+    shop_name  : Optional[str] = None
+    description: Optional[str] = None
+    address    : Optional[str] = None
+    phone      : Optional[str] = None
+    line_id    : Optional[str] = None
+    facebook   : Optional[str] = None
+    instagram  : Optional[str] = None
+    banner_img : Optional[str] = None
+    logo_img   : Optional[str] = None
+ 
+class ShopSettingResponse(BaseModel):
+    id         : int
+    shop_name  : str
+    description: Optional[str]
+    address    : Optional[str]
+    phone      : Optional[str]
+    line_id    : Optional[str]
+    facebook   : Optional[str]
+    instagram  : Optional[str]
+    banner_img : Optional[str]
+    logo_img   : Optional[str]
+    update_at  : datetime
+ 
+    class Config:
+        from_attributes = True
+ 
+class PageViewCreate(BaseModel):
+    session_id: str   # uuid สร้างจาก frontend
+    path      : str   # เช่น "/", "/queue", "/profile"
+
+# ═══════════════════════════════════════════
+# NOTIFICATION
+# ═══════════════════════════════════════════
+ 
+class NotificationResponse(BaseModel):
+    id       : int
+    type     : NotificationType
+    title    : str
+    message  : str
+    is_read  : bool
+    ref_id   : Optional[int]
+    create_at: datetime
+ 
+    class Config:
+        from_attributes = True

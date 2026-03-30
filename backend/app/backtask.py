@@ -4,7 +4,7 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy.orm import Session
 from app.database import SessionLocal
 from jose import jwt
-from app.model import QueueSlots, BookedStatus, TypeUser, PreUser
+from app.model import QueueSlots, BookedStatus, TypeUser, PreUser,NotificationType,Notification
 from app.database import get_db
 from app.model import User
 import os
@@ -14,43 +14,58 @@ ALGORITHM = os.getenv("ALGORITHM")
 SESSION_TIMEOUT = timedelta(minutes=15)
 
 def create_tasks(app: FastAPI):
-
+ 
     @app.on_event("startup")
-    @repeat_every(seconds=60)  
-    def auto_cancel_no_show():
+    @repeat_every(seconds=60)
+    def auto_no_show():
+        """
+        req: ถ้าไม่มาภายใน 5 นาทีจะยกเลิกอัตโนมัติ
+        ทำงานทุก 1 นาที
+        """
         now = datetime.now(timezone.utc)
         db: Session = SessionLocal()
         try:
             queues = db.query(QueueSlots).filter(
                 QueueSlots.status == BookedStatus.BOOKED,
                 QueueSlots.date_working == now.date(),
-                QueueSlots.start_time <= now - timedelta(minutes=5)
+                QueueSlots.start_time <= (now - timedelta(minutes=5)).time(),
             ).all()
+ 
             for q in queues:
-                q.status = BookedStatus.NO_SHOW
+                # แจ้งเตือนลูกค้า (ถ้าเป็น Online booking)
+                if q.customer_id:
+                    n = Notification(
+                        user_id=q.customer_id,
+                        type=NotificationType.QUEUE_CANCELLED,
+                        title="คิวถูกยกเลิกอัตโนมัติ",
+                        message="คิวของคุณถูกยกเลิกเนื่องจากไม่มาตามเวลา",
+                        ref_id=q.id,
+                    )
+                    db.add(n)
+ 
+                q.status      = BookedStatus.NO_SHOW
                 q.customer_id = None
                 q.status_user = TypeUser.NONE
-            db.commit()
+ 
+            if queues:
+                db.commit()
         finally:
             db.close()
 
 
 def create_otp_cleanup_task(app: FastAPI):
     @app.on_event("startup")
-    @repeat_every(seconds=60)  
+    @repeat_every(seconds=300)   # ทุก 5 นาที (ไม่ต้องรันทุกนาที)
     def cleanup_expired_otps():
         now = datetime.now(timezone.utc)
         with SessionLocal() as db:
-            expired_users = db.query(PreUser).filter(
+            expired = db.query(PreUser).filter(
                 PreUser.is_verified == False,
-                PreUser.otp_expire < now
+                PreUser.otp_expire < now,
             ).all()
-
-            for user in expired_users:
-                print(f"ลบ PreUser ที่หมดอายุ OTP: {user.email}")
-                db.delete(user)
-
-            if expired_users:
+            for u in expired:
+                db.delete(u)
+            if expired:
                 db.commit()
 
 def get_current_user(request: Request, db: Session = Depends(get_db)):

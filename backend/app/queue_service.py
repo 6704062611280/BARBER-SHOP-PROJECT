@@ -2,11 +2,15 @@ from fastapi import APIRouter,Depends,HTTPException,Header
 from app.database import get_db
 from sqlalchemy.orm import Session
 from app.model import Chair, OpeningDate, QueueSlots,User,BookedStatus,TypeUser,UserRole,Barber
+from app.notification_service import (
+    notify_queue_booked, notify_queue_cancelled, notify_queue_no_show
+)
 from datetime import date
 from app.schemas import QueueResponse
 from app.rolebase import require_roles,require_barber
 from app.backtask import get_current_user
 from datetime import datetime, timedelta
+from sqlalchemy.orm import joinedload
 
 router = APIRouter(prefix="/queue_service",tags=["Queue_Service"])
 
@@ -59,17 +63,29 @@ def viewChair(chair_id: int,dateshop:date = date.today(), db: Session = Depends(
     return queues_slot
 
 @router.get("/barber/queues", response_model=list[QueueResponse])
-def viewWorkingTable(barber_id: int,dateshop:date = date.today(), db: Session = Depends(get_db)):
-    opening = db.query(OpeningDate).filter(OpeningDate.date_open == dateshop).first()
-    if not opening:
-        raise HTTPException(status_code=400,detail="No schedule for this day")
-    if not opening.is_open:
-        raise HTTPException(status_code=400, detail="Shop closed")
-    barber = db.query(Barber).filter(Barber.id == barber_id).first()
+def view_barber_queues(
+    dateshop: date = date.today(),
+    user: User = Depends(require_barber()),
+    db: Session = Depends(get_db),
+):
+    """
+    Barber/Owner ดูตารางงานของตัวเอง
+    ตาม wireframe Book queue (Barber) และ IF (Barber)
+    """
+    barber = user.barber
     if not barber:
-        raise HTTPException(status_code=404, detail="Barber table working time not found")
-
-
+        raise HTTPException(403, "No barber profile")
+ 
+    chair = db.query(Chair).filter(Chair.barber_id == barber.id).first()
+    if not chair:
+        raise HTTPException(404, "ยังไม่ได้รับมอบหมายเก้าอี้")
+ 
+    return db.query(QueueSlots).filter(
+        QueueSlots.chair_id == chair.id,
+        QueueSlots.date_working == dateshop,
+    ).order_by(QueueSlots.start_time).all()
+ 
+ 
 
 
 @router.post("/user/{chair_id}/queues/{queue_id}/booked", response_model=QueueResponse)
@@ -91,6 +107,10 @@ def bookedQueuesByCustomer(
     queue.customer_id = user.id
     queue.status = BookedStatus.BOOKED
     queue.status_user = TypeUser.ONLINE
+    notify_queue_booked(
+        db, user.id, queue.id,
+        str(queue.start_time), str(queue.date_working)
+    )
     try:
         db.commit()
         db.refresh(queue)
@@ -169,7 +189,7 @@ def cancelByCustomer(
     queue.status = BookedStatus.CANCELLED
     queue.customer_id = None
     queue.status_user = TypeUser.NONE
-
+    notify_queue_cancelled(db, user.id, queue.id, "ยกเลิกโดยผู้ใช้")
     try:
         db.commit()
         db.refresh(queue)
@@ -203,7 +223,8 @@ def cancelByBarber(
         raise HTTPException(400, "Cannot cancel this queue")
 
     validate_transition(queue.status, BookedStatus.CANCELLED)
-
+    if queue.customer_id:
+        notify_queue_cancelled(db, queue.customer_id, queue.id, "ยกเลิกโดยพนักงาน")
     queue.status = BookedStatus.CANCELLED
     queue.customer_id = None
     queue.status_user = TypeUser.NONE
@@ -392,13 +413,38 @@ def close_shop(
 
     # 🔥 ปิด slot ที่ยังว่าง
     db.query(QueueSlots).filter(
-        QueueSlots.date_working == today,
-        QueueSlots.status == BookedStatus.AVAILABLE
-    ).update({
-        "status": BookedStatus.AVAILABLE
-    })
-
+    QueueSlots.date_working == today,
+    QueueSlots.status == BookedStatus.AVAILABLE
+).update({"status": BookedStatus.CANCELLED})
     db.commit()
 
     return {"message": "Shop closed"}
+
+@router.get("/user/my_queue")
+def view_my_queue(
+    user: User = Depends(require_roles([UserRole.CUSTOMER])),
+    db  : Session = Depends(get_db),
+):
+    """ลูกค้าดูคิวของตัวเอง (ตาม wireframe View Queue Customer)"""
+    queues = (
+        db.query(QueueSlots)
+        .options(joinedload(QueueSlots.chair))
+        .filter(
+            QueueSlots.customer_id == user.id,
+            QueueSlots.date_working >= date.today(),
+        )
+        .order_by(QueueSlots.date_working, QueueSlots.start_time)
+        .all()
+    )
+    return [
+        {
+            "queue_id"   : q.id,
+            "chair_name" : q.chair.name if q.chair else None,
+            "date"       : q.date_working,
+            "start_time" : q.start_time,
+            "end_time"   : q.end_time,
+            "status"     : q.status.value,
+        }
+        for q in queues
+    ]
 

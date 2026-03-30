@@ -33,6 +33,15 @@ class LeaveStatus(enum.Enum):
     APPROVED = "APPROVED"
     REJECTED = "REJECTED"
 
+class NotificationType(enum.Enum):
+    QUEUE_BOOKED    = "QUEUE_BOOKED"     # ยืนยันการจองคิว
+    QUEUE_CANCELLED = "QUEUE_CANCELLED"  # คิวถูกยกเลิก
+    QUEUE_REMINDER  = "QUEUE_REMINDER"   # แจ้งเตือนก่อนถึงคิว
+    LEAVE_APPROVED  = "LEAVE_APPROVED"   # จดหมายลาอนุมัติ
+    LEAVE_REJECTED  = "LEAVE_REJECTED"   # จดหมายลาปฏิเสธ
+    SYSTEM          = "SYSTEM"    
+
+
 class User(Base):
     __tablename__ = "users"
 
@@ -50,7 +59,7 @@ class User(Base):
     create_at:Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     update_at:Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     queues:Mapped[list["QueueSlots"]] = relationship(back_populates="customer")
-   
+    notifications : Mapped[list["Notification"]] = relationship(back_populates="user", cascade="all, delete-orphan")
     
 
 
@@ -96,7 +105,7 @@ class Chair(Base):
     ForeignKey("barbers.id"),
     nullable=True
 )
-barber = relationship("Barber")
+    barber = relationship("Barber")
 
 class QueueSlots(Base):
     __tablename__ = "queue_slots"
@@ -153,3 +162,51 @@ class RefreshToken(Base):
     jti = Column(String, unique=True, index=True)
     
     user = relationship("User")
+
+class Notification(Base):
+    __tablename__ = "notifications"
+    id: Mapped[int]              = mapped_column(primary_key=True)
+    user_id : Mapped[int]              = mapped_column(ForeignKey("users.id"))
+    type: Mapped[NotificationType] = mapped_column(Enum(NotificationType))
+    title     : Mapped[str]              = mapped_column(String(100), nullable=False)
+    message   : Mapped[str]              = mapped_column(String(500), nullable=False)
+    is_read   : Mapped[bool]             = mapped_column(Boolean, default=False)
+    ref_id    : Mapped[int | None]       = mapped_column(Integer, nullable=True)   # queue_id หรือ letter_id
+    create_at : Mapped[datetime]         = mapped_column(DateTime(timezone=True), server_default=func.now())
+ 
+    user = relationship("User", back_populates="notifications")
+
+class PageView(Base):
+    """
+    นับจำนวนผู้เข้าชมเว็บ (unique session per day)
+    เก็บ user_id = None สำหรับ Guest
+    """
+    __tablename__ = "page_views"
+ 
+    id        : Mapped[int]       = mapped_column(primary_key=True)
+    user_id   : Mapped[int | None]= mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    session_id: Mapped[str]       = mapped_column(String(100), nullable=False)   # uuid จาก frontend
+    path      : Mapped[str]       = mapped_column(String(200), nullable=False)   # หน้าที่เข้าชม
+    viewed_at : Mapped[datetime]  = mapped_column(DateTime(timezone=True), server_default=func.now())
+ 
+    __table_args__ = (
+        UniqueConstraint("session_id", "path", name="uq_session_path"),
+    )
+
+class ShopSetting(Base):
+    """
+    ตั้งค่าร้าน (req: ทางร้านสามารถจัดการรายละเอียดเว็บได้)
+    """
+    __tablename__ = "shop_settings"
+ 
+    id          : Mapped[int]       = mapped_column(primary_key=True)
+    shop_name   : Mapped[str]       = mapped_column(String(100), default="Barber Shop")
+    description : Mapped[str | None]= mapped_column(String(500))
+    address     : Mapped[str | None]= mapped_column(String(300))
+    phone       : Mapped[str | None]= mapped_column(String(50))
+    line_id     : Mapped[str | None]= mapped_column(String(100))
+    facebook    : Mapped[str | None]= mapped_column(String(200))
+    instagram   : Mapped[str | None]= mapped_column(String(200))
+    banner_img  : Mapped[list[str] | None]= mapped_column(String(255))
+    logo_img    : Mapped[list[str] | None]= mapped_column(String(255))
+    update_at   : Mapped[datetime]  = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

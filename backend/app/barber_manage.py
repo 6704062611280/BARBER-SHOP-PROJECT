@@ -6,6 +6,8 @@ from app.rolebase import require_roles,require_barber
 from datetime import date
 from app.schemas import LetterResponse,LetterCreate
 from datetime import datetime
+from sqlalchemy.orm import joinedload
+from app.notification_service import notify_leave_approved, notify_leave_rejected
 
 router = APIRouter(prefix="/barber_manage",tags=["Barber_Manage"])
 
@@ -126,14 +128,18 @@ def send_leave_letter(
 
 @router.get("/leave_letter", response_model=list[LetterResponse])
 def getAllLetter(db: Session = Depends(get_db),user: User = Depends(require_roles([UserRole.OWNER]))):
-    letter = db.query(LeaveLetter).all()
-    if not letter:
+    letters = db.query(LeaveLetter).options(
+    joinedload(LeaveLetter.barber).joinedload(Barber.user_data)
+).all()
+    if not letters:
         raise HTTPException(404,"Not Found Letter")
-    return letter
+    return letters
 
 @router.get("/leave_letter/{letter_id}")
 def getLetter(letter_id:int,db: Session = Depends(get_db),user: User = Depends(require_roles([UserRole.OWNER]))):
-    letter = db.query(LeaveLetter).filter(LeaveLetter.id == letter_id).first()
+    letter = db.query(LeaveLetter).options(
+    joinedload(LeaveLetter.barber).joinedload(Barber.user_data)
+).filter(LeaveLetter.id == letter_id).first()
     if not letter:
         raise HTTPException(404,"Not Found Letter")
     return letter
@@ -148,6 +154,9 @@ def approvedLetter(letter_id:int,db: Session = Depends(get_db),user: User = Depe
     if letter.status == LeaveStatus.REJECTED:
         raise HTTPException(400,"จดหมายถูกปฎิเสธคำขอไปแล้ว")
     letter.status = LeaveStatus.APPROVED
+    barber = db.query(Barber).filter(Barber.id == letter.barber_id).first()
+    if barber:
+        notify_leave_approved(db, barber.user_id, letter.id, str(letter.date_leave))
     db.commit()
     return {"message": "Approved successfully"}
 
@@ -161,6 +170,9 @@ def rejectedLettter(letter_id:int,db: Session = Depends(get_db),user: User = Dep
     if letter.status == LeaveStatus.REJECTED:
         raise HTTPException(400,"จดหมายถูกปฎิเสธคำขอไปแล้ว")
     letter.status = LeaveStatus.REJECTED
+    barber = db.query(Barber).filter(Barber.id == letter.barber_id).first()
+    if barber:
+        notify_leave_rejected(db, barber.user_id, letter.id, str(letter.date_leave))
     db.commit()
     return {"message": "Rejected successfully"}
 
@@ -172,27 +184,37 @@ def getAllCustomer(db: Session = Depends(get_db),user: User = Depends(require_ro
     return customer_table
 
 @router.post("/grant/{user_id}")
-def grantEmployee(user_id:int,db: Session = Depends(get_db),user: User = Depends(require_roles([UserRole.OWNER]))):
+def grant_employee(
+    user_id: int,
+    db     : Session = Depends(get_db),
+    user   : User    = Depends(require_roles([UserRole.OWNER])),
+):
+    """เพิ่มผู้ใช้เป็นพนักงาน"""
     target = db.query(User).filter(User.id == user_id).first()
     if not target:
         raise HTTPException(404, "User not found")
-    if not target.rolestatus == UserRole.CUSTOMER:
-        raise HTTPException(400, "User is not a customer")
+    if target.rolestatus != UserRole.CUSTOMER:
+        raise HTTPException(400, "User ต้องเป็น CUSTOMER")
+ 
     target.rolestatus = UserRole.EMPLOYEE
     new_barber = Barber(user_id=target.id)
+    db.add(new_barber)
     try:
         db.commit()
         db.refresh(new_barber)
-    except:
+    except Exception:
         db.rollback()
         raise HTTPException(500, "Database error")
-    return {"message": "User promoted to employee"}
+    return {"message": "User promoted to employee", "barber_id": new_barber.id}
 
-@router.post("/revork/{barber_id}")
-def revorkEmployee(barber_id:int,db: Session = Depends(get_db),user: User = Depends(require_roles([UserRole.OWNER]))):
+@router.post("/revoke/{barber_id}")
+def revoke_employee(barber_id:int,db: Session = Depends(get_db),user: User = Depends(require_roles([UserRole.OWNER]))):
     barber = db.query(Barber).filter(Barber.id == barber_id).first()
     if not barber:
         raise HTTPException(404, "Barber not found")
+    chair = db.query(Chair).filter(Chair.barber_id == barber.id).first()
+    if chair:
+         chair.barber_id = None
     target = db.query(User).filter(User.id == barber.user_id).first()
     target.rolestatus = UserRole.CUSTOMER
     db.delete(barber)
@@ -202,3 +224,25 @@ def revorkEmployee(barber_id:int,db: Session = Depends(get_db),user: User = Depe
         db.rollback()
         raise HTTPException(500, "Database error")
     return {"message": "Employee revoked"}
+
+@router.get("/all_users")
+def get_all_users(
+    db  : Session = Depends(get_db),
+    user: User    = Depends(require_roles([UserRole.OWNER])),
+):
+    """ดูผู้ใช้ทั้งหมด (ตาม wireframe Manage User)"""
+    users = db.query(User).order_by(User.create_at.desc()).all()
+    return [
+        {
+            "id"         : u.id,
+            "username"   : u.username,
+            "firstname"  : u.firstname,
+            "lastname"   : u.lastname,
+            "email"      : u.email,
+            "phone"      : u.phone,
+            "rolestatus" : u.rolestatus.value,
+            "profile_img": u.profile_img,
+            "create_at"  : u.create_at,
+        }
+        for u in users
+    ]
