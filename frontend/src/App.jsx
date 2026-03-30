@@ -15,6 +15,7 @@ import CustomWeb from "./component/CustomWebPage"
 import Notification from "./component/NotificationPage"
 import EditProfilePage from "./component/EditProfilePage"
 import LeaveLetter from "./component/LeaveLetterPage"
+import LeaveDetailPage from "./component/LeaveDetailPage"
 import ChangePasswordPage from "./component/ChangePasswordPage"
 import './App.css'
 import { useState } from "react"
@@ -39,6 +40,7 @@ function App() {
        <Route path="/queues-table" element={<QueueTable/>}/>
        <Route path="/notification" element={<Notification/>} />
        <Route path="/leave-letter" element={<LeaveLetter/>} />
+       <Route path="/leave-detail" element={<LeaveDetailPage/>} />
        <Route element={<RequireRole allowRoles={["CUSTOMER"]} />}>
         </Route>
        <Route element={<RequireRole allowRoles={["EMPLOYEE"]} />}>

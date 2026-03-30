@@ -6,11 +6,28 @@ export default function ManageUser() {
   const navigate = useNavigate()
   const [search, setSearch] = useState("")
   const [activeTab, setActiveTab] = useState("staff")
+  const [confirmDialog, setConfirmDialog] = useState({
+    isOpen: false,
+    message: "",
+    onConfirm: null,
+    onCancel: null
+  })
   const [owner, setOwner] = useState({
     name: "เจ้าของร้าน: XXXX",
     availability: "ทำงาน",
     chair: "เก้าอี้ 1"
   })
+
+  const [users, setUsers] = useState([
+    { id: 1, number: "001", name: "XXX5", status: "ทำงาน" },
+    { id: 2, number: "002", name: "XXX6", status: "ทำงาน" },
+    { id: 3, number: "003", name: "XXX7", status: "ทำงาน" },
+    { id: 4, number: "004", name: "XXX8", status: "ทำงาน" },
+    { id: 5, number: "005", name: "XXX9", status: "ทำงาน" },
+    { id: 6, number: "006", name: "XXX10", status: "ทำงาน" },
+    { id: 7, number: "007", name: "XXX11", status: "ทำงาน" },
+    { id: 8, number: "008", name: "XXX12", status: "ทำงาน" }
+  ])
 
   const [staff, setStaff] = useState([
     { id: 1, name: "XXX1", availability: "ทำงาน", chair: "เก้าอี้ 1" },
@@ -62,27 +79,130 @@ export default function ManageUser() {
   }
 
   const deleteStaff = (id) => {
-    setStaff((prev) => prev.filter((item) => item.id !== id))
+    setConfirmDialog({
+      isOpen: true,
+      message: "คุณแน่ใจหรือไม่ที่ลบพนักงานนี้?",
+      onConfirm: () => {
+        const staffIndex = staff.findIndex((item) => item.id === id)
+        if (staffIndex === -1) return
+        
+        const staffToRemove = staff[staffIndex]
+        setStaff((prev) => prev.filter((_, idx) => idx !== staffIndex))
+        
+        // Transfer back to users
+        if (staffToRemove) {
+          let newId
+          if (staffToRemove.id >= 100) {
+            newId = staffToRemove.id - 100
+          } else {
+            newId = staffToRemove.id + 200
+          }
+          
+          setUsers((prev) => {
+            if (prev.some((item) => item.id === newId)) {
+              return prev
+            }
+            return [...prev, {
+              id: newId,
+              number: staffToRemove.number || "",
+              name: staffToRemove.name,
+              status: "ทำงาน"
+            }]
+          })
+        }
+        setConfirmDialog({ isOpen: false, message: "", onConfirm: null, onCancel: null })
+      },
+      onCancel: () => {
+        setConfirmDialog({ isOpen: false, message: "", onConfirm: null, onCancel: null })
+      }
+    })
+  }
+
+  const addAsEmployee = (id) => {
+    setConfirmDialog({
+      isOpen: true,
+      message: "คุณแน่ใจหรือไม่ที่เพิ่มผู้ใช้นี้เป็นพนักงาน?",
+      onConfirm: () => {
+        const userToAdd = users.find((item) => item.id === id)
+        if (!userToAdd) return
+        
+        if (staff.some((item) => item.id === id + 100)) return
+        
+        setStaff((prev) => {
+          if (prev.some((item) => item.id === id + 100)) return prev
+          
+          const occupiedChairs = prev.map((item) => item.chair)
+          const availableChair = chairOptions.find((chair) => !occupiedChairs.includes(chair)) || chairOptions[0]
+          
+          return [...prev, {
+            id: userToAdd.id + 100,
+            number: userToAdd.number || "",
+            name: userToAdd.name,
+            availability: "ทำงาน",
+            chair: availableChair
+          }]
+        })
+        
+        setUsers((prev) => prev.filter((item) => item.id !== id))
+        setConfirmDialog({ isOpen: false, message: "", onConfirm: null, onCancel: null })
+      },
+      onCancel: () => {
+        setConfirmDialog({ isOpen: false, message: "", onConfirm: null, onCancel: null })
+      }
+    })
   }
 
   const approveLeave = (id) => {
-    setLeaveRequests((prev) =>
-      prev.map((item) =>
-        item.id === id ? { ...item, status: "อนุมัติแล้ว" } : item
-      )
-    )
+    setConfirmDialog({
+      isOpen: true,
+      message: "คุณแน่ใจหรือไม่ที่ยอมรับคำขออนุญาตลานี้?",
+      onConfirm: () => {
+        setLeaveRequests((prev) =>
+          prev.map((item) =>
+            item.id === id ? { ...item, status: "อนุมัติแล้ว" } : item
+          )
+        )
+        setConfirmDialog({ isOpen: false, message: "", onConfirm: null, onCancel: null })
+      },
+      onCancel: () => {
+        setConfirmDialog({ isOpen: false, message: "", onConfirm: null, onCancel: null })
+      }
+    })
   }
 
   const rejectLeave = (id) => {
-    setLeaveRequests((prev) =>
-      prev.map((item) =>
-        item.id === id ? { ...item, status: "ปฏิเสธแล้ว" } : item
-      )
-    )
+    setConfirmDialog({
+      isOpen: true,
+      message: "คุณแน่ใจหรือไม่ที่ปฏิเสธคำขออนุญาตลานี้?",
+      onConfirm: () => {
+        setLeaveRequests((prev) =>
+          prev.map((item) =>
+            item.id === id ? { ...item, status: "ปฏิเสธแล้ว" } : item
+          )
+        )
+        setConfirmDialog({ isOpen: false, message: "", onConfirm: null, onCancel: null })
+      },
+      onCancel: () => {
+        setConfirmDialog({ isOpen: false, message: "", onConfirm: null, onCancel: null })
+      }
+    })
   }
 
   const cancelLeaveRequest = (id) => {
     setLeaveRequests((prev) => prev.filter((item) => item.id !== id))
+  }
+
+  const toggleUserStatus = (id) => {
+    setUsers((prev) =>
+      prev.map((item) =>
+        item.id === id
+          ? {
+              ...item,
+              status: item.status === "ทำงาน" ? "หยุด" : "ทำงาน"
+            }
+          : item
+      )
+    )
   }
 
   const filteredStaff = staff.filter((item) =>
@@ -115,7 +235,28 @@ export default function ManageUser() {
         </div>
 
         <div className="content-panel">
-          {(activeTab === "all" || activeTab === "staff") && (
+          {activeTab === "all" && (
+            <div className="users-cards-container">
+              {users.map((user) => (
+                <div key={user.id} className="user-card">
+                  <div className="user-card-header">
+                    <span 
+                      className={`user-status-indicator green`}
+                      style={{ cursor: "pointer" }}
+                    />
+                  </div>
+                  <div className="user-card-content">
+                    <div className="user-card-info">
+                      <div className="user-name">{user.name}</div>
+                    </div>
+                    <button className="user-card-btn" onClick={() => addAsEmployee(user.id)}>เพิ่มเป็นพนักงาน</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {activeTab === "staff" && (
             <>
               <div className="staff-row">
                 <div className="staff-info">
@@ -206,12 +347,12 @@ export default function ManageUser() {
                             <button className="leave-reject-btn" onClick={() => rejectLeave(request.id)}>
                               ปฏิเสธ
                             </button>
-                            <button className="leave-cancel-btn" onClick={() => cancelLeaveRequest(request.id)}>
+                            <button className="leave-cancel-btn" onClick={() => navigate("/leave-detail", { state: { leaveRequest: request } })}>
                               ดูเพิ่มเติม
                             </button>
                           </>
                         ) : (
-                          <button className="leave-view-btn">ดูเพิ่มเติม</button>
+                          <button className="leave-view-btn" onClick={() => navigate("/leave-detail", { state: { leaveRequest: request } })}>ดูเพิ่มเติม</button>
                         )}
                       </td>
                     </tr>
@@ -222,6 +363,28 @@ export default function ManageUser() {
           )}
         </div>
       </div>
+
+      {confirmDialog.isOpen && (
+        <div className="confirm-dialog-overlay">
+          <div className="confirm-dialog-card">
+            <p className="confirm-dialog-message">{confirmDialog.message}</p>
+            <div className="confirm-dialog-buttons">
+              <button 
+                className="confirm-dialog-cancel-btn" 
+                onClick={confirmDialog.onCancel}
+              >
+                ยกเลิก
+              </button>
+              <button 
+                className="confirm-dialog-confirm-btn" 
+                onClick={confirmDialog.onConfirm}
+              >
+                ยืนยัน
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

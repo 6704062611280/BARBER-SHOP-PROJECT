@@ -82,6 +82,10 @@
   border-radius: 10px;
   padding: 12px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
 .owner-section {
@@ -128,7 +132,31 @@
   flex-direction: column;
   gap: 8px;
   max-height: 300px;
-  overflow-y: auto;
+  overflow-y: scroll;
+  overflow-x: hidden;
+  padding-right: 8px;
+  width: calc(100% + 16px);
+  margin-right: -16px;
+  scrollbar-gutter: stable;
+  min-height: 0;
+  flex-shrink: 1;
+}
+
+.staff-list::-webkit-scrollbar {
+  width: 12px;
+}
+
+.staff-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.staff-list::-webkit-scrollbar-thumb {
+  background: #b0b0b0;
+  border-radius: 6px;
+}
+
+.staff-list::-webkit-scrollbar-thumb:hover {
+  background: #999999;
 }
 
 .staff-row {
@@ -245,6 +273,32 @@
 
 .leave-table-container {
   overflow-x: auto;
+  overflow-y: scroll;
+  max-height: 400px;
+  padding-right: 8px;
+  width: calc(100% + 16px);
+  margin-right: -16px;
+  scrollbar-gutter: stable;
+  min-height: 0;
+  flex-shrink: 1;
+}
+
+.leave-table-container::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+.leave-table-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.leave-table-container::-webkit-scrollbar-thumb {
+  background: #b0b0b0;
+  border-radius: 6px;
+}
+
+.leave-table-container::-webkit-scrollbar-thumb:hover {
+  background: #999999;
 }
 
 .leave-table {
@@ -344,4 +398,205 @@
 
 .leave-view-btn:hover {
   opacity: 0.85;
+}
+
+/* User Cards Layout */
+.users-cards-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: 250px;
+  overflow-y: scroll;
+  overflow-x: hidden;
+  padding-right: 8px;
+  width: calc(100% + 16px);
+  margin-right: -16px;
+  scrollbar-gutter: stable;
+  min-height: 0;
+  flex-shrink: 1;
+}
+
+.users-cards-container::-webkit-scrollbar {
+  width: 12px;
+}
+
+.users-cards-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.users-cards-container::-webkit-scrollbar-thumb {
+  background: #b0b0b0;
+  border-radius: 6px;
+}
+
+.users-cards-container::-webkit-scrollbar-thumb:hover {
+  background: #999999;
+}
+
+.user-card {
+  background: #fff;
+  border: 1px solid #ede5dd;
+  border-radius: 12px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  min-height: 64px;
+  padding: 12px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+  transition: box-shadow 0.2s ease;
+  flex-shrink: 0;
+}
+
+.user-card:hover {
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.12);
+}
+
+.user-card-header {
+  display: flex;
+  align-items: center;
+  margin-right: 12px;
+}
+
+.user-status-indicator {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.user-status-indicator.green {
+  background: var(--green);
+}
+
+.user-status-indicator.red {
+  background: var(--red);
+}
+
+.user-status-indicator.orange {
+  background: var(--orange);
+}
+
+.user-card-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex: 1;
+  gap: 12px;
+}
+
+.user-card-info {
+  flex: 1;
+}
+
+.user-number {
+  font-size: 13px;
+  font-weight: 600;
+  color: #999;
+  margin-bottom: 3px;
+  display: none;
+}
+
+.user-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 0;
+}
+
+.user-card-btn {
+  background: var(--orange);
+  color: #fff;
+  border: 0;
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: opacity 0.2s ease;
+}
+
+.user-card-btn:hover {
+  opacity: 0.9;
+}
+
+/* Confirm Dialog */
+.confirm-dialog-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.confirm-dialog-card {
+  background: #fff;
+  border: 3px solid var(--card-border);
+  border-radius: 16px;
+  padding: 24px;
+  max-width: 320px;
+  width: 90%;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+  animation: slideIn 0.3s ease;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateY(-20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.confirm-dialog-message {
+  text-align: center;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 20px;
+  line-height: 1.4;
+}
+
+.confirm-dialog-buttons {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+
+.confirm-dialog-cancel-btn,
+.confirm-dialog-confirm-btn {
+  border: 0;
+  border-radius: 999px;
+  padding: 10px 24px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+  min-width: 100px;
+}
+
+.confirm-dialog-cancel-btn {
+  background: var(--red);
+  color: #fff;
+}
+
+.confirm-dialog-cancel-btn:hover {
+  opacity: 0.9;
+}
+
+.confirm-dialog-confirm-btn {
+  background: var(--green);
+  color: #fff;
+}
+
+.confirm-dialog-confirm-btn:hover {
+  opacity: 0.9;
 }

@@ -1,0 +1,147 @@
+:root {
+  --bg: #fff8e8;
+  --card: #f5d9b8;
+  --card-border: #704a37;
+  --panel: #fff;
+  --text: #1b0f0a;
+  --orange: #ff9f24;
+  --red: #ef5350;
+  --green: #4caf50;
+  --yellow: #fdd835;
+}
+
+.leave-detail-page {
+  min-height: 100vh;
+  background: var(--bg);
+  padding: 20px;
+  position: relative;
+}
+
+.back-button {
+  position: absolute;
+  left: 14px;
+  top: 14px;
+  border: 0;
+  background: transparent;
+  font-size: 26px;
+  cursor: pointer;
+  z-index: 10;
+}
+
+.leave-detail-card {
+  position: relative;
+  max-width: 640px;
+  margin: 46px auto 0;
+  background: var(--card);
+  border: 5px solid var(--card-border);
+  border-radius: 18px;
+  box-shadow: 10px 10px 12px rgba(0,0,0,0.24);
+  padding: 28px 20px;
+}
+
+.leave-detail-card h1 {
+  text-align: center;
+  font-size: 28px;
+  font-weight: 900;
+  margin-bottom: 22px;
+  color: var(--text);
+}
+
+.detail-section {
+  background: var(--panel);
+  border-radius: 10px;
+  padding: 16px;
+  margin-bottom: 20px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.detail-item {
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #ede5dd;
+}
+
+.detail-item:last-child {
+  margin-bottom: 0;
+  border-bottom: none;
+}
+
+.detail-item label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: #999;
+  margin-bottom: 6px;
+}
+
+.detail-value {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+  margin: 0;
+}
+
+.detail-value.status {
+  display: inline-block;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 13px;
+  background: #e8e8e8;
+  color: var(--text);
+}
+
+.detail-value.status.รอคำตัดสิน {
+  background: var(--yellow);
+  color: #1b0f0a;
+}
+
+.detail-value.status.อนุมัติแล้ว {
+  background: var(--green);
+  color: #fff;
+}
+
+.detail-value.status.ปฏิเสธแล้ว {
+  background: var(--red);
+  color: #fff;
+}
+
+.detail-value.reason {
+  color: #666;
+  font-style: italic;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.approve-btn,
+.reject-btn {
+  flex: 1;
+  border: 0;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 14px;
+  padding: 12px;
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+}
+
+.approve-btn {
+  background: var(--green);
+  color: #fff;
+}
+
+.approve-btn:hover {
+  opacity: 0.9;
+}
+
+.reject-btn {
+  background: var(--red);
+  color: #fff;
+}
+
+.reject-btn:hover {
+  opacity: 0.9;
+}
