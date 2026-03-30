@@ -40,15 +40,7 @@
 }
 
 .manage-user-card::before {
-  content: "";
-  position: absolute;
-  top: 44px;
-  left: calc(50% - 338px);
-  width: 100%;
-  height: 100%;
-  border-radius: 18px;
-  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.6);
-  pointer-events: none;
+  display: none;
 }
 
 .manage-user-card h1 {
@@ -135,6 +127,8 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
+  max-height: 300px;
+  overflow-y: auto;
 }
 
 .staff-row {
@@ -213,4 +207,141 @@
 
 .delete-btn:hover {
   background: #d63131;
+}
+
+.tabs-row {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.tab-btn {
+  border: 1px solid #d9d0c5;
+  background: #fff;
+  color: #1b0f0a;
+  border-radius: 999px;
+  padding: 8px 12px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.tab-btn.active {
+  background: var(--orange);
+  color: #fff;
+  border-color: var(--orange);
+}
+
+.leave-placeholder {
+  background: #fff;
+  border: 1px solid #ede5dd;
+  border-radius: 8px;
+  padding: 18px;
+  text-align: center;
+  color: #806a53;
+  font-weight: 600;
+}
+
+.leave-table-container {
+  overflow-x: auto;
+}
+
+.leave-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #fff;
+  border: 1px solid #ede5dd;
+  border-radius: 8px;
+  font-size: 14px;
+}
+
+.leave-table thead {
+  background: #f5d9b8;
+  border-bottom: 2px solid #d9d0c5;
+}
+
+.leave-table th {
+  padding: 10px;
+  text-align: left;
+  font-weight: 700;
+  color: var(--text);
+  border-right: 1px solid #d9d0c5;
+}
+
+.leave-table th:last-child {
+  border-right: none;
+}
+
+.leave-table td {
+  padding: 10px;
+  border-right: 1px solid #ede5dd;
+  color: var(--text);
+}
+
+.leave-table td:last-child {
+  border-right: none;
+}
+
+.leave-table tbody tr {
+  border-bottom: 1px solid #ede5dd;
+}
+
+.leave-table tbody tr:hover {
+  background: #fafaf8;
+}
+
+.leave-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.leave-approve-btn,
+.leave-reject-btn,
+.leave-cancel-btn,
+.leave-view-btn {
+  border: 0;
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+
+.leave-approve-btn {
+  background: var(--green);
+  color: #fff;
+}
+
+.leave-approve-btn:hover {
+  opacity: 0.85;
+}
+
+.leave-reject-btn {
+  background: var(--red);
+  color: #fff;
+}
+
+.leave-reject-btn:hover {
+  opacity: 0.85;
+}
+
+.leave-cancel-btn {
+  background: #d9d0c5;
+  color: #1b0f0a;
+}
+
+.leave-cancel-btn:hover {
+  opacity: 0.85;
+}
+
+.leave-view-btn {
+  background: #e0e0e0;
+  color: #1b0f0a;
+}
+
+.leave-view-btn:hover {
+  opacity: 0.85;
 }

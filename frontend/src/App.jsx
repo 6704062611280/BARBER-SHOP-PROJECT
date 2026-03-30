@@ -26,6 +26,7 @@ function App() {
   return (
     <>
    <Routes>
+     <Route path="/test-manage-user" element={<ManageUser />} />
      <Route element={<Layout />}>
        <Route path="/" element={<Home />} />
        <Route path="/login" element={<Login />} />
@@ -47,8 +48,6 @@ function App() {
           <Route path="/dashboard" element={<DashBoard/>} />
           <Route path="/manage-user" element={<ManageUser/>} />
         </Route>
-        {/* temporary test route - remove once your user flow works */}
-        <Route path="/test-manage-user" element={<ManageUser/>} />
      </Route>
     </Routes>
   
