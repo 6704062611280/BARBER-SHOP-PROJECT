@@ -42,9 +42,13 @@ function App() {
             <Route path="/booked-table" element={<BookedTable/>}/>
           </Route>
 
-          {/* --- หน้าเฉพาะ Role: EMPLOYEE --- */}
-          <Route element={<RequireRole allowRoles={["EMPLOYEE"]} />}>
+          {/* --- หน้าเฉพาะ Role: EMPLOYEE และ OWNER (ดูคิว) --- */}
+          <Route element={<RequireRole allowRoles={["EMPLOYEE", "OWNER"]} />}>
             <Route path="/working-table" element={<WorkTable/>}/>
+          </Route>
+
+          {/* --- หน้าเฉพาะ Role: EMPLOYEE (แจ้งลา) --- */}
+          <Route element={<RequireRole allowRoles={["EMPLOYEE"]} />}>
             <Route path="/leave-letter" element={<LeaveLetter/>}/>
           </Route>
 

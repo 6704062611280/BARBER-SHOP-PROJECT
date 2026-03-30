@@ -7,7 +7,7 @@ export default function Home() {
     const navigate = useNavigate();
     
     // ดึงค่าที่ Owner ตั้งค่าเอาไว้ (จาก DataContext)
-    const { islogin, heroSlides, promoSlides, announcementText } = useContext(DataContext) || {};
+    const { islogin, role, heroSlides, promoSlides, announcementText } = useContext(DataContext) || {};
 
     // --- 1. ระบบโฆษณาส่วนที่ 1 (Slideshow) ---
     const [currentHeroSlide, setCurrentHeroSlide] = useState(0);
@@ -38,12 +38,14 @@ export default function Home() {
         }
     }, [safePromoSlides.length]);
 
-    // --- ฟังก์ชันดักจับปุ่มจองคิว ---
+   // --- ฟังก์ชันดักจับปุ่มจองคิว ---
     const handleBookingClick = () => {
         if (!islogin) {
-            navigate('/login');
+            navigate('/login'); // Guest ไปหน้าล็อกอิน
+        } else if (role === 'EMPLOYEE' || role === 'OWNER') {
+            navigate('/working-table'); // พนักงานและเจ้าของไปหน้าจัดการคิว
         } else {
-            navigate('/chair');
+            navigate('/chair'); // ลูกค้าไปหน้าจองเก้าอี้
         }
     };
 
