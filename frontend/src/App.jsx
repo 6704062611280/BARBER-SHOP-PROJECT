@@ -1,4 +1,4 @@
-import { Routes, Route, Router } from "react-router-dom"
+import { Routes, Route } from "react-router-dom"
 import Home from './component/Home' 
 import Login from './component/LoginPage' 
 import ChairPage from "./component/SelectChairPage"
@@ -18,12 +18,9 @@ import LeaveLetter from "./component/LeaveLetterPage"
 import LeaveDetailPage from "./component/LeaveDetailPage"
 import ChangePasswordPage from "./component/ChangePasswordPage"
 import './App.css'
-import { useState } from "react"
 import Layout from "./component/Layout"
 
 function App() {
-  
-
   return (
     <>
    <Routes>
@@ -54,6 +51,33 @@ function App() {
     </Routes>
   
 
+          {/* --- หน้าเฉพาะ Role: CUSTOMER --- */}
+          <Route element={<RequireRole allowRoles={["CUSTOMER"]} />}>
+            <Route path="/booked-table" element={<BookedTable/>}/>
+          </Route>
+
+          {/* --- หน้าเฉพาะ Role: EMPLOYEE และ OWNER (ดูคิว) --- */}
+          <Route element={<RequireRole allowRoles={["EMPLOYEE", "OWNER"]} />}>
+            <Route path="/working-table" element={<WorkTable/>}/>
+          </Route>
+
+          {/* --- หน้าเฉพาะ Role: EMPLOYEE (แจ้งลา) --- */}
+          <Route element={<RequireRole allowRoles={["EMPLOYEE"]} />}>
+            <Route path="/leave-letter" element={<LeaveLetter/>}/>
+          </Route>
+
+          {/* --- หน้าเฉพาะ Role: OWNER --- */}
+          <Route element={<RequireRole allowRoles={["OWNER"]} />}>
+            <Route path="/dashboard" element={<DashBoard/>} />
+            <Route path="/manage-user" element={<ManageUser />} />
+            
+            {/* 🌟 เพิ่ม Route 2 หน้านี้ให้แล้วครับ! 🌟 */}
+            <Route path="/custom-web" element={<CustomWeb />} />
+            <Route path="/shop-setting" element={<Shopsetting />} />
+          </Route>
+
+        </Route>
+      </Routes>
     </>
   )
 }

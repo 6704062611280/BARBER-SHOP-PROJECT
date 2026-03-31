@@ -1,62 +1,251 @@
-import { Outlet, useNavigate } from "react-router-dom"
-import { useState,useContext,useEffect } from "react"
+import { Outlet, useNavigate, useLocation } from "react-router-dom"
+import { useContext, useState, useRef, useEffect } from "react"
 import { DataContext } from "../DataContext"
-import "./style/Layout.css"
+import "./style/Layout.css" 
 
 export default function Layout() {
   const navigate = useNavigate()
-  const { role, islogin, setIsLogin } = useContext(DataContext)
-  const handleLogOut = () =>{
-    localStorage.clear()
-    localStorage.setItem("islogin",false)
-    setIsLogin(false) 
-  }
+  const location = useLocation()
   
+  const { role, islogin, setIsLogin, setRole, username } = useContext(DataContext)
+
+  // ให้ Navbar รู้จัก currentRole เสมอ
+  const currentRole = role ? role.toUpperCase() : '';
+  
+  const [isPopupOpen, setIsPopupOpen] = useState(false);
+  const popupRef = useRef();
+
+  const handleLogOut = () =>{
+    setIsPopupOpen(false);
+    localStorage.clear()
+    localStorage.setItem("islogin", false)
+    setIsLogin(false) 
+    setRole(null) 
+    navigate("/login")
+  }
+
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (popupRef.current && !popupRef.current.contains(event.target)) {
+        setIsPopupOpen(false);
+      }
+    }
+    if (isPopupOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [isPopupOpen]);
+
+  const navigateTo = (path) => {
+    setIsPopupOpen(false);
+    navigate(path);
+  }
+
+  const renderNavProfileIcon = () => {
+    if (!islogin) {
+      return (
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-black" viewBox="0 0 20 20" fill="currentColor">
+          <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
+        </svg>
+      );
+    }
+
+    if (currentRole === 'OWNER') return <img src="/images/icon-owner.png" alt="Owner Profile" className="w-full h-full object-cover" />;
+    if (currentRole === 'EMPLOYEE') return <img src="/images/icon-employee.png" alt="Employee Profile" className="w-full h-full object-cover" />;
+    if (currentRole === 'CUSTOMER') return <img src="/images/icon-customer.png" alt="Customer Profile" className="w-full h-full object-cover" />;
+    
+    return <img src="/images/icon-customer.png" alt="Profile" className="w-full h-full object-cover" />;
+  }
+
+  const renderPopupMenuItems = () => {
+    const menuItemClass = "flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-orange-50 w-full text-left transition-colors duration-150 font-medium";
+
+    if (currentRole === 'CUSTOMER') {
+      return (
+        <>
+          <button onClick={() => navigateTo("/edit-profile")} className={menuItemClass}>
+             <img src="/images/icon-edit.png" alt="edit" className="w-5 h-5 mr-3" /> แก้ไขโปรไฟล์
+          </button>
+          <button onClick={() => navigateTo("/notification")} className={menuItemClass}>
+             <img src="/images/icon-bell.png" alt="bell" className="w-5 h-5 mr-3" /> การแจ้งเตือน
+          </button>
+        </>
+      );
+    }
+    
+    if (currentRole === 'EMPLOYEE') {
+      return (
+        <>
+          <button onClick={() => navigateTo("/edit-profile")} className={menuItemClass}>
+             <img src="/images/icon-edit.png" alt="edit" className="w-5 h-5 mr-3" /> แก้ไขโปรไฟล์
+          </button>
+          <button onClick={() => navigateTo("/notification")} className={menuItemClass}>
+             <img src="/images/icon-bell.png" alt="bell" className="w-5 h-5 mr-3" /> การแจ้งเตือน
+          </button>
+          <button onClick={() => navigateTo("/leave-letter")} className={menuItemClass}>
+             <img src="/images/icon-leave.png" alt="leave" className="w-5 h-5 mr-3" /> แจ้งลา
+          </button>
+        </>
+      );
+    }
+
+    if (currentRole === 'OWNER') {
+      return (
+        <>
+          <button onClick={() => navigateTo("/edit-profile")} className={menuItemClass}>
+             <img src="/images/icon-edit.png" alt="edit" className="w-5 h-5 mr-3" /> แก้ไขโปรไฟล์
+          </button>
+          <button onClick={() => navigateTo("/notification")} className={menuItemClass}>
+             <img src="/images/icon-bell.png" alt="bell" className="w-5 h-5 mr-3" /> การแจ้งเตือน
+          </button>
+          <button onClick={() => navigateTo("/dashboard")} className={menuItemClass}>
+             <img src="/images/icon-chart.png" alt="chart" className="w-5 h-5 mr-3" /> ดูกราฟผลประกอบการ
+          </button>
+          <button onClick={() => navigateTo("/manage-user")} className={menuItemClass}>
+             <img src="/images/icon-users.png" alt="users" className="w-5 h-5 mr-3" /> จัดการบัญชีสมาชิก
+          </button>
+          <button onClick={() => navigateTo("/custom-web")} className={menuItemClass}>
+             <img src="/images/icon-web.png" alt="web" className="w-5 h-5 mr-3" /> ปรับแต่งเว็บไซด์
+          </button>
+          <button onClick={() => navigateTo("/shop-setting")} className={menuItemClass}>
+             <img src="/images/icon-setting.png" alt="setting" className="w-5 h-5 mr-3" /> จัดการคิว & สถานะร้าน
+          </button>
+        </>
+      );
+    }
+    
+    return null;
+  }
+
+  const navLinkClass = "text-black hover:text-[#ff9c2f] font-semibold transition-colors cursor-pointer";
+  const activeNavLinkClass = "text-[#ff9c2f] font-semibold transition-colors cursor-pointer";
+
+  const getLinkStyle = (path) => {
+    return location.pathname === path ? activeNavLinkClass : navLinkClass;
+  }
 
   return (
-    <>
-      <header className="header-Home">
-        <div>
-          <h1>LOGO</h1>
+    <div className="min-h-screen flex flex-col font-sans relative">
+      
+      {/* --- Navbar --- */}
+      <header className="bg-[#F6DBB8] px-6 py-4 flex flex-row justify-between items-center shadow-sm relative z-50 h-20">
+        
+        {/* ส่วนที่ 1: โลโก้ */}
+        <div className="flex-1 flex justify-start items-center">
+          <div className="cursor-pointer" onClick={() => navigate("/")}>
+             <img src="/images/logo-barber.png" alt="Barber Shop Logo" className="h-12 w-auto object-contain" />
+          </div>
         </div>
 
-        <div className="tapbar" style={{ flexGrow: 1 }}>
-          <button className="tap" onClick={() => navigate("/")}>Home</button>
-          <div>|</div>
-          <button className="tap" onClick={() => navigate("/chair")}>Queue</button>
-          <div>|</div>
-          <button className="tap" onClick={() => navigate("/view-queue")}>View Queue</button>
-        </div>
+        {/* ส่วนที่ 2: เมนูตรงกลาง */}
+        <nav className="flex-1 hidden md:flex justify-center items-center gap-6">
+          <button onClick={() => navigate("/")} className={getLinkStyle("/")}>หน้าแรก</button>
+          <span className="text-gray-400 font-light">|</span>
+          
+          {/* ปุ่มจองคิว */}
+          <button 
+            onClick={() => navigate(currentRole === 'EMPLOYEE' || currentRole === 'OWNER' ? "/working-table" : "/chair")} 
+            className={getLinkStyle(currentRole === 'EMPLOYEE' || currentRole === 'OWNER' ? "/working-table" : "/chair")}
+          >
+            จองคิว
+          </button>
+          
+          {/* 🌟 ปุ่มสถานะคิว (แสดงเฉพาะ Guest หรือ Customer) */}
+          {(!islogin || currentRole === 'CUSTOMER') && (
+            <>
+              <span className="text-gray-400 font-light">|</span>
+              <button 
+                // ✅ ถ้าเป็น Guest ให้ไปหน้า /login, ถ้า Login แล้วเป็น Customer ให้ไปหน้า /booked-table
+                onClick={() => navigate(!islogin ? "/login" : "/booked-table")} 
+                className={getLinkStyle("/booked-table")}
+              >
+                สถานะคิว
+              </button>
+            </>
+          )}
+        </nav>
 
-        <div>
-          {islogin
-            ? <div><button onClick={() => handleLogOut() }>Logout</button>
-            <button>Icon</button></div>  
-            : <button onClick={() => navigate("/login")}>Login</button>        
-          }
+        {/* ส่วนที่ 3: ปุ่ม Login / Profile Popup */}
+        <div className="flex-1 flex justify-end items-center gap-4 relative">
+          {!islogin && (
+            <button onClick={() => navigate("/login")} className="bg-[#FFA333] hover:bg-[#ff8a00] text-black font-bold px-6 py-2 rounded-lg shadow-md border border-orange-400 transition-colors">
+              ลงชื่อเข้าใช้
+            </button>
+          )}
+
+          <div onClick={() => islogin && setIsPopupOpen(!isPopupOpen)} className={`w-12 h-12 bg-white rounded-full flex items-center justify-center border-2 ${isPopupOpen ? 'border-orange-400' : 'border-transparent'} hover:border-orange-300 cursor-pointer shadow-sm overflow-hidden transition-all duration-150`}>
+            {renderNavProfileIcon()}
+          </div>
+
+          {/* Popup Menu */}
+          {islogin && isPopupOpen && (
+            <div ref={popupRef} className="absolute right-0 top-14 mt-2 w-72 bg-white rounded-2xl shadow-xl py-3 border border-gray-100 flex flex-col z-50">
+              <div className="flex items-center gap-3 px-5 pb-3 border-b border-gray-100 mb-2">
+                 <div className="w-12 h-12 rounded-full overflow-hidden bg-gray-100">
+                    {renderNavProfileIcon()}
+                 </div>
+                 <div className="flex flex-col text-left">
+                    <span className="font-bold text-gray-800">{username || "ชื่อผู้ใช้งาน"}</span>
+                    <span className="text-xs text-gray-500 uppercase tracking-wider">{role}</span>
+                 </div>
+              </div>
+              
+              <div className="w-full flex flex-col items-start mb-2">
+                {renderPopupMenuItems()}
+              </div>
+
+              <div className="w-full border-t border-gray-100 pt-2 px-2">
+                <button onClick={handleLogOut} className="flex items-center px-4 py-2 w-full text-left text-sm text-red-600 font-bold hover:bg-red-50 rounded-lg">
+                   <img src="/images/icon-logout.png" alt="logout" className="w-5 h-5 mr-3" /> ออกจากระบบ
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </header>
 
-      <main>
+      {/* --- Main Content --- */}
+      <main className="flex-grow bg-[#fffdf9]">
         <Outlet />
       </main>
+      
+      {/* 🛠️ DEV TOOLS */}
+      <div className="fixed bottom-4 left-4 bg-white p-4 rounded-xl shadow-2xl border-2 border-red-500 z-[100] flex flex-col gap-2 opacity-30 hover:opacity-100 transition-opacity">
+        <p className="text-xs font-bold text-red-500 text-center uppercase">Dev Switch Role</p>
+        <div className="flex gap-2 text-xs">
+          <button onClick={() => { setIsLogin(false); setRole(null); }} className="bg-gray-200 px-2 py-1 rounded">Guest</button>
+          <button onClick={() => { setIsLogin(true); setRole('CUSTOMER'); }} className="bg-blue-200 px-2 py-1 rounded">Customer</button>
+          <button onClick={() => { setIsLogin(true); setRole('EMPLOYEE'); }} className="bg-green-200 px-2 py-1 rounded">Employee</button>
+          <button onClick={() => { setIsLogin(true); setRole('OWNER'); }} className="bg-orange-200 px-2 py-1 rounded">Owner</button>
+        </div>
+      </div>
 
-      <footer className="footer-Home">
+      {/* --- Footer --- */}
+      <footer className="bg-[#5D4037] text-white py-10 px-8 md:px-24 flex flex-col md:flex-row justify-between items-start gap-8 z-30 relative">
         <div>
-          <h3>Address:</h3>
-          <div>ที่อยู่</div>
+          <h3 className="font-bold mb-3 text-lg flex items-center gap-2">
+             <img src="/images/icon-location-white.png" alt="location" className="w-6 h-6 object-contain" /> ที่อยู่ร้าน
+          </h3>
+          <p className="text-sm text-gray-200">120/8 หมู่บ้านร่มฟ้า วิลเลจ<br/>วรานคร 22310</p>
         </div>
 
         <div>
-          <h3>Contact:</h3>
-          <div>ติดต่อ</div>
+          <h3 className="font-bold mb-3 text-lg">ช่องทางติดต่อ</h3>
+          <p className="text-sm text-gray-200 flex items-center gap-2 mb-1">
+             <img src="/images/icon-chat-white.png" alt="chat" className="w-5 h-5 object-contain" /> Barbershop123
+          </p>
+          <p className="text-sm text-gray-200 flex items-center gap-2">
+             <img src="/images/icon-phone-white.png" alt="phone" className="w-5 h-5 object-contain" /> 020-123-4567
+          </p>
         </div>
 
         <div>
-          <h3>Open Time:</h3>
-          <div>เวลาเปิดปิด</div>
+          <h3 className="font-bold mb-3 text-lg flex items-center gap-2">
+             <img src="/images/icon-clock-white.png" alt="clock" className="w-6 h-6 object-contain" /> เปิดบริการทุกวัน
+          </h3>
+          <p className="text-xl text-gray-200">10:00 น. - 20:00 น.</p>
         </div>
       </footer>
-    </>
+    </div>
   )
 }
