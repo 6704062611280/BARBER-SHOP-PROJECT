@@ -133,7 +133,7 @@ export default function ShopSetting() {
                         <div className="flex flex-row items-center gap-4 bg-white p-4 rounded-lg border border-orange-200 shadow-sm w-full max-w-md justify-center">
                             <select 
                                 value={localOpenTime}
-                                onChange={(e) => handleProtectedChange('openTime', e.target.value)}
+                                onChange={(e) => setLocalOpenTime(e.target.value)}
                                 className="p-2 border border-orange-300 rounded-lg focus:ring-2 focus:ring-orange-500 outline-none text-lg font-bold text-center cursor-pointer bg-gray-50"
                             >
                                 {timeOptions.map(time => (
@@ -145,7 +145,7 @@ export default function ShopSetting() {
 
                             <select 
                                 value={localCloseTime}
-                                onChange={(e) => handleProtectedChange('closeTime', e.target.value)}
+                                onChange={(e) => setLocalCloseTime(e.target.value)}
                                 className="p-2 border border-orange-300 rounded-lg focus:ring-2 focus:ring-orange-500 outline-none text-lg font-bold text-center cursor-pointer bg-gray-50"
                             >
                                 {timeOptions.map(time => (
