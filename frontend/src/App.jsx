@@ -13,29 +13,43 @@ import QueueTable from "./component/QueuesPage"
 import Shopsetting from "./component/ShopSetting"
 import CustomWeb from "./component/CustomWebPage"
 import Notification from "./component/NotificationPage"
-import EditProfile from "./component/EditProfilePage" // <-- นำเข้าหน้า Edit Profile
-import LeaveLetter from "./component/LeaveLetterPage" // <-- นำเข้าหน้า Leave Letter
+import EditProfilePage from "./component/EditProfilePage"
+import LeaveLetter from "./component/LeaveLetterPage"
+import LeaveDetailPage from "./component/LeaveDetailPage"
+import ChangePasswordPage from "./component/ChangePasswordPage"
 import './App.css'
 import Layout from "./component/Layout"
 
 function App() {
   return (
     <>
-      <Routes>
-        {/* ทุกหน้าเว็บที่อยู่ภายใต้ <Route element={<Layout />}> จะมี Navbar และ Footer โชว์เสมอ */}
-        <Route element={<Layout />}>
-          
-          {/* --- หน้าที่ทุกคนเข้าถึงได้ (Guest) --- */}
-          <Route path="/" element={<Home />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          <Route path="/chair" element={<ChairPage/>}/>
-          <Route path="/reset-password" element={<ResetPassword/>}/>
-          <Route path="/queues-table" element={<QueueTable/>}/>
-
-          {/* --- หน้าที่ต้อง Login เข้ามาก่อนถึงจะเห็น --- */}
-          <Route path="/edit-profile" element={<EditProfile />} />
-          <Route path="/notification" element={<Notification />} />
+   <Routes>
+     <Route path="/test-manage-user" element={<ManageUser />} />
+     <Route element={<Layout />}>
+       <Route path="/" element={<Home />} />
+       <Route path="/login" element={<Login />} />
+       <Route path="/register" element={<Register />} />
+       <Route path="/chair" element={<ChairPage/>}/>
+       <Route path="/booked-table" element={<BookedTable/>}/>
+       <Route path="/reset-password" element={<ResetPassword/>}/>
+       <Route path="/edit-profile" element={<EditProfilePage/>}/>
+       <Route path="/change-password" element={<ChangePasswordPage />} />
+       <Route path="/queues-table" element={<QueueTable/>}/>
+       <Route path="/notification" element={<Notification/>} />
+       <Route path="/leave-letter" element={<LeaveLetter/>} />
+       <Route path="/leave-detail" element={<LeaveDetailPage/>} />
+       <Route element={<RequireRole allowRoles={["CUSTOMER"]} />}>
+        </Route>
+       <Route element={<RequireRole allowRoles={["EMPLOYEE"]} />}>
+          <Route path="/working-table" element={<WorkTable/>}/>
+        </Route>
+        <Route element={<RequireRole allowRoles={["OWNER"]} />}>
+          <Route path="/dashboard" element={<DashBoard/>} />
+          <Route path="/manage-user" element={<ManageUser/>} />
+        </Route>
+     </Route>
+    </Routes>
+  
 
           {/* --- หน้าเฉพาะ Role: CUSTOMER --- */}
           <Route element={<RequireRole allowRoles={["CUSTOMER"]} />}>
