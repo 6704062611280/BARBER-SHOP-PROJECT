@@ -1,7 +1,3 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
 /* คลุมทั้งหน้า */
 .login-page-wrapper {
   background-color: #f0f0f0; /* สีพื้นหลังนอกกล่อง */
