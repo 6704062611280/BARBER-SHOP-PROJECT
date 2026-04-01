@@ -22,64 +22,51 @@ import Layout from "./component/Layout"
 
 function App() {
   return (
-    <>
-   <Routes>
-     <Route path="/test-manage-user" element={<ManageUser />} />
-     <Route element={<Layout />}>
-       <Route path="/" element={<Home />} />
-       <Route path="/login" element={<Login />} />
-       <Route path="/register" element={<Register />} />
-       <Route path="/chair" element={<ChairPage/>}/>
-       <Route path="/booked-table" element={<BookedTable/>}/>
-       <Route path="/reset-password" element={<ResetPassword/>}/>
-       <Route path="/edit-profile" element={<EditProfilePage/>}/>
-       <Route path="/change-password" element={<ChangePasswordPage />} />
-       <Route path="/queues-table" element={<QueueTable/>}/>
-       <Route path="/notification" element={<Notification/>} />
-       <Route path="/leave-letter" element={<LeaveLetter/>} />
-       <Route path="/leave-detail" element={<LeaveDetailPage/>} />
-       <Route element={<RequireRole allowRoles={["CUSTOMER"]} />}>
+    <Routes>
+      {/* 1. Route นอก Layout (ถ้ามี) */}
+      <Route path="/test-manage-user" element={<ManageUser />} />
+
+      {/* 2. Group ที่ใช้ Layout ร่วมกัน (มี Navbar/Footer) */}
+      <Route element={<Layout />}>
+        {/* --- Public Routes (ใครก็เข้าได้) --- */}
+        <Route path="/" element={<Home />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
+        
+        {/* --- General Protected Routes (ต้อง Login ก่อน) --- */}
+        <Route path="/chair" element={<ChairPage />} />
+        <Route path="/edit-profile" element={<EditProfilePage />} />
+        <Route path="/change-password" element={<ChangePasswordPage />} />
+        <Route path="/queues-table" element={<QueueTable />} />
+        <Route path="/notification" element={<Notification />} />
+        <Route path="/leave-detail" element={<LeaveDetailPage />} />
+
+        {/* --- Role: CUSTOMER เท่านั้น --- */}
+        <Route element={<RequireRole allowRoles={["CUSTOMER"]} />}>
+          <Route path="/booked-table" element={<BookedTable />} />
         </Route>
-       <Route element={<RequireRole allowRoles={["EMPLOYEE"]} />}>
-          <Route path="/working-table" element={<WorkTable/>}/>
+
+        {/* --- Role: EMPLOYEE เท่านั้น --- */}
+        <Route element={<RequireRole allowRoles={["EMPLOYEE"]} />}>
+          <Route path="/leave-letter" element={<LeaveLetter />} />
         </Route>
+
+        {/* --- Role: EMPLOYEE และ OWNER --- */}
+        <Route element={<RequireRole allowRoles={["EMPLOYEE", "OWNER"]} />}>
+          <Route path="/working-table" element={<WorkTable />} />
+        </Route>
+
+        {/* --- Role: OWNER เท่านั้น --- */}
         <Route element={<RequireRole allowRoles={["OWNER"]} />}>
-          <Route path="/dashboard" element={<DashBoard/>} />
-          <Route path="/manage-user" element={<ManageUser/>} />
+          <Route path="/dashboard" element={<DashBoard />} />
+          <Route path="/manage-user" element={<ManageUser />} />
+          <Route path="/custom-web" element={<CustomWeb />} />
+          <Route path="/shop-setting" element={<Shopsetting />} />
         </Route>
-     </Route>
+      </Route>
     </Routes>
-  
-
-          {/* --- หน้าเฉพาะ Role: CUSTOMER --- */}
-          <Route element={<RequireRole allowRoles={["CUSTOMER"]} />}>
-            <Route path="/booked-table" element={<BookedTable/>}/>
-          </Route>
-
-          {/* --- หน้าเฉพาะ Role: EMPLOYEE และ OWNER (ดูคิว) --- */}
-          <Route element={<RequireRole allowRoles={["EMPLOYEE", "OWNER"]} />}>
-            <Route path="/working-table" element={<WorkTable/>}/>
-          </Route>
-
-          {/* --- หน้าเฉพาะ Role: EMPLOYEE (แจ้งลา) --- */}
-          <Route element={<RequireRole allowRoles={["EMPLOYEE"]} />}>
-            <Route path="/leave-letter" element={<LeaveLetter/>}/>
-          </Route>
-
-          {/* --- หน้าเฉพาะ Role: OWNER --- */}
-          <Route element={<RequireRole allowRoles={["OWNER"]} />}>
-            <Route path="/dashboard" element={<DashBoard/>} />
-            <Route path="/manage-user" element={<ManageUser />} />
-            
-            {/* 🌟 เพิ่ม Route 2 หน้านี้ให้แล้วครับ! 🌟 */}
-            <Route path="/custom-web" element={<CustomWeb />} />
-            <Route path="/shop-setting" element={<Shopsetting />} />
-          </Route>
-
-        </Route>
-      </Routes>
-    </>
-  )
+  );
 }
 
 export default App
