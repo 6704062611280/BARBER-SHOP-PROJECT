@@ -204,7 +204,7 @@ class CustomeIMgWebsite(Base):
 
     id          : Mapped[int]       = mapped_column(primary_key=True)
     path_img    : Mapped[str]       = mapped_column(String(200), nullable=True)
-    cate        : Mapped[CategoryImg|None]=mapped_column(CategoryImg, nullable=True)
+    cate        : Mapped[CategoryImg|None]=mapped_column(Enum(CategoryImg), nullable=True)
 
 class Description(Base):
 
