@@ -1,8 +1,8 @@
 import { useNavigate } from "react-router-dom"
 import { useState, useRef,useContext  } from "react"
 import { DataContext } from "../DataContext"
-import "./style/OTPPage.css"
+import "./style/MyQueuesPage.css"
 
-export default function OTPPage(){
+export default function queuesPage(){
 
 }
