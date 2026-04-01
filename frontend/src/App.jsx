@@ -9,7 +9,7 @@ import RequireRole from "./component/RequireRole"
 import DashBoard from "./component/DashBoardPage"
 import ResetPassword from "./component/ResetPasswordPage"
 import WorkTable from "./component/WorkTablePage"
-import QueueTable from "./component/MyQueuesPage"
+import QueuesPage from "./component/queuesPage"
 import Shopsetting from "./component/ShopSetting"
 import CustomWeb from "./component/CustomWebPage"
 import Notification from "./component/NotificationPage"
@@ -38,7 +38,7 @@ function App() {
         <Route path="/chair" element={<ChairPage />} />
         <Route path="/edit-profile" element={<EditProfilePage />} />
         <Route path="/change-password" element={<ChangePasswordPage />} />
-        <Route path="/queues-table" element={<QueueTable />} />
+        <Route path="/booking/:chairId" element={<QueuesPage />} />
         <Route path="/notification" element={<Notification />} />
         <Route path="/leave-detail" element={<LeaveDetailPage />} />
 
