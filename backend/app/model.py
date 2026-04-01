@@ -17,6 +17,9 @@ class PreUserStatus(enum.Enum):
     REGISTER = "REGISTER"
     RESET_PASSWORD = "RESET_PASSWORD"
 
+class CategoryImg(enum.Enum):
+    BANNER = "BANNER"
+    MAIN_IMG = "MAIN_IMG"
 
 class TypeUser(enum.Enum):
     WALK_IN = "WALK_IN"
@@ -55,7 +58,8 @@ class User(Base):
     phone:Mapped[str] = mapped_column(String(50),nullable=False)
     last_activity:Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
     barber:Mapped["Barber"] = relationship(back_populates="user_data", uselist=False)
-    profile_img:Mapped[str | None] = mapped_column(String(255))#ใส่path
+    profile_img:Mapped[str | None] = mapped_column(String(255),
+        default="static/profile_images/default_profile/profile-icon.png")#ใส่path
     create_at:Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     update_at:Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     queues:Mapped[list["QueueSlots"]] = relationship(back_populates="customer")
@@ -193,20 +197,18 @@ class PageView(Base):
         UniqueConstraint("session_id", "path", name="uq_session_path"),
     )
 
-class ShopSetting(Base):
-    """
-    ตั้งค่าร้าน (req: ทางร้านสามารถจัดการรายละเอียดเว็บได้)
-    """
-    __tablename__ = "shop_settings"
- 
+
+class CustomeIMgWebsite(Base):
+
+    __tablename__ = "custome_website"
+
     id          : Mapped[int]       = mapped_column(primary_key=True)
-    shop_name   : Mapped[str]       = mapped_column(String(100), default="Barber Shop")
-    description : Mapped[str | None]= mapped_column(String(500))
-    address     : Mapped[str | None]= mapped_column(String(300))
-    phone       : Mapped[str | None]= mapped_column(String(50))
-    line_id     : Mapped[str | None]= mapped_column(String(100))
-    facebook    : Mapped[str | None]= mapped_column(String(200))
-    instagram   : Mapped[str | None]= mapped_column(String(200))
-    banner_img  : Mapped[str | None]= mapped_column(String(255))
-    logo_img    : Mapped[str | None]= mapped_column(String(255))
-    update_at   : Mapped[datetime]  = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    path_img    : Mapped[str]       = mapped_column(String(200), nullable=True)
+    cate        : Mapped[CategoryImg|None]=mapped_column(CategoryImg, nullable=True)
+
+class Description(Base):
+
+    __tablename__ = "descrition"
+
+    id          : Mapped[int]       = mapped_column(primary_key=True)
+    massege    : Mapped[str]       = mapped_column(String(200), nullable=True)

@@ -1,6 +1,6 @@
 from pydantic import BaseModel,EmailStr, Field
 from datetime import datetime,date,time
-from app.model import UserRole,BookedStatus,TypeUser,LeaveStatus,NotificationType
+from app.model import UserRole,BookedStatus,TypeUser,LeaveStatus,NotificationType,CategoryImg
 from typing import Optional
 
 
@@ -100,7 +100,6 @@ class UserResponsePreRegister(BaseModel):
 class UserUpdateProfile(BaseModel):
     firstname: Optional[str] = None
     lastname: Optional[str] = None
-    email: Optional[EmailStr] = None
     phone: Optional[str] = None
     profile_img: Optional[str] = None
 
@@ -129,32 +128,24 @@ class LetterResponse(BaseModel):
 # SHOP SETTING
 # ═══════════════════════════════════════════
  
-class ShopSettingUpdate(BaseModel):
-    shop_name  : Optional[str] = None
-    description: Optional[str] = None
-    address    : Optional[str] = None
-    phone      : Optional[str] = None
-    line_id    : Optional[str] = None
-    facebook   : Optional[str] = None
-    instagram  : Optional[str] = None
-    banner_img : Optional[str] = None
-    logo_img   : Optional[str] = None
+class CustomeIMgWebsiteUpdate(BaseModel):
+    path_img    : Optional[str]=None
+    cate        : Optional[CategoryImg]=None
  
-class ShopSettingResponse(BaseModel):
+class CustomeIMgWebsiteResponse(BaseModel):
     id         : int
-    shop_name  : str
-    description: Optional[str]
-    address    : Optional[str]
-    phone      : Optional[str]
-    line_id    : Optional[str]
-    facebook   : Optional[str]
-    instagram  : Optional[str]
-    banner_img : Optional[str]
-    logo_img   : Optional[str]
-    update_at  : datetime
+    path_img    : Optional[str]=None
+    cate        : Optional[CategoryImg]=None
  
     class Config:
         from_attributes = True
+
+class DescriptionUpdate(BaseModel):
+    massege : Optional[str] = None
+
+class DescriptionResponse(BaseModel):
+    id :int
+    massege : Optional[str] = None
  
 class PageViewCreate(BaseModel):
     session_id: str   # uuid สร้างจาก frontend

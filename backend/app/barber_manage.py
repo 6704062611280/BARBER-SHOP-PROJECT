@@ -25,29 +25,34 @@ def assign_chair(
     user: User = Depends(require_roles([UserRole.OWNER])),
     db: Session = Depends(get_db),
 ):
-    # ---------------------------
-    # 1. load chair
-    # ---------------------------
+    # 1. Load chair
     chair = db.query(Chair).filter(Chair.id == chair_id).first()
     if not chair:
         raise HTTPException(404, "Chair not found")
 
-    # ---------------------------
-    # 2. load barber
-    # ---------------------------
+    # 2. Load barber
     barber = db.query(Barber).filter(Barber.id == barber_id).first()
     if not barber:
         raise HTTPException(404, "Barber not found")
 
-    # ---------------------------
-    # 3. กัน assign ซ้ำเก้าอี้
-    # ---------------------------
-    if chair.barber_id is not None:
-        raise HTTPException(400, "Chair already assigned")
+    # --- เพิ่มส่วนการเช็กคนลาตรงนี้ ---
+    # 3. เช็กว่าช่างคนนี้มีใบลาที่อนุมัติแล้วในวันนี้หรือไม่
+    today = date.today()
+    leave_record = db.query(LeaveLetter).filter(
+        LeaveLetter.barber_id == barber_id,
+        LeaveLetter.date_leave == today,
+        LeaveLetter.status == LeaveStatus.APPROVED
+    ).first()
 
-    # ---------------------------
-    # 4. กัน barber มีหลายเก้าอี้
-    # ---------------------------
+    if leave_record:
+        raise HTTPException(400, f"Cannot assign: Barber is on leave today ({leave_record.report})")
+    # ------------------------------
+
+    # 4. กัน assign ซ้ำเก้าอี้
+    if chair.barber_id is not None:
+        raise HTTPException(400, "Chair already assigned to someone else")
+
+    # 5. กัน barber มีหลายเก้าอี้
     existing = db.query(Chair).filter(
         Chair.barber_id == barber_id
     ).first()
@@ -55,22 +60,21 @@ def assign_chair(
     if existing:
         raise HTTPException(400, "Barber already has a chair")
 
-    # ---------------------------
-    # 5. assign
-    # ---------------------------
+    # 6. Assign
     chair.barber_id = barber_id
 
     try:
         db.commit()
         db.refresh(chair)
-    except:
+    except Exception as e:
         db.rollback()
-        raise HTTPException(500, "Database error")
+        raise HTTPException(500, f"Database error: {str(e)}")
 
     return {
-        "message": "Chair assigned",
+        "message": "Chair assigned successfully",
         "chair_id": chair.id,
-        "barber_id": barber_id
+        "barber_id": barber_id,
+        "barber_name": f"{barber.user_data.firstname} {barber.user_data.lastname}"
     }
 
 @router.post("/unassign_chair")

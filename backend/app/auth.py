@@ -202,20 +202,20 @@ def edit_profile(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    if user_update.firstname is not None:
-        current_user.firstname = user_update.firstname
+    # 1. ดึงข้อมูลเฉพาะตัวแปรที่ถูกส่งมาจาก Frontend (ไม่เอาค่า default ที่เป็น None)
+    update_data = user_update.model_dump(exclude_unset=True)
 
-    if user_update.lastname is not None:
-        current_user.lastname = user_update.lastname
+    # 2. วนลูปอัปเดตข้อมูลลงใน Model Object
+    for field, value in update_data.items():
+        setattr(current_user, field, value)
 
-    if user_update.phone is not None:
-        current_user.phone = user_update.phone
-    
-    if user_update.profile_img is not None:
-        current_user.profile_img = user_update.profile_img
-
-    db.commit()
-    db.refresh(current_user)
+    # 3. บันทึกลง Database
+    try:
+        db.commit()
+        db.refresh(current_user)
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail="ไม่สามารถอัปเดตข้อมูลได้")
 
     return {
         "message": "Profile updated successfully",
@@ -224,7 +224,7 @@ def edit_profile(
             "firstname": current_user.firstname,
             "lastname": current_user.lastname,
             "phone": current_user.phone,
-            "profile_img" : current_user.profile_img
+            "profile_img": current_user.profile_img
         }
     }
 
