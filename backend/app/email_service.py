@@ -2,7 +2,9 @@ import random
 import smtplib
 from email.mime.text import MIMEText
 import os
+from dotenv import load_dotenv
 
+load_dotenv()
 
 def generate_otp():
     return str(random.randint(100000, 999999))
@@ -10,7 +12,7 @@ def generate_otp():
 
 def send_otp_email(to_email: str, otp: str):
     sender = os.getenv("EMAIL")
-    password = os.getenv("PASS_EMAIL")
+    password = os.getenv("PASS_APP")
 
     if not sender or not password:
         raise ValueError("EMAIL or PASS_EMAIL is not set in environment variables")
@@ -32,4 +34,4 @@ def send_otp_email(to_email: str, otp: str):
             server.login(sender, password)
             server.send_message(msg)
     except Exception as e:
-        raise Exception(f"Failed to send email: {str(e)}")
+        print("EMAIL ERROR:", e)
