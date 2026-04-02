@@ -353,3 +353,33 @@ def is_customer(current_user = Depends(get_current_user)):
             detail="สิทธิ์การเข้าถึงถูกปฏิเสธ: เฉพาะลูกค้าเท่านั้นที่สามารถทำรายการนี้ได้"
         )
     return current_user
+
+@router.post("/user/{chair_id}/queues/{queue_id}/booked")
+def book_queue(
+    chair_id: int, 
+    queue_id: int, 
+    db: Session = Depends(get_db), 
+    # ใช้ Dependency ที่เราสร้างไว้ข้างบน
+    current_customer = Depends(is_customer) 
+):
+    # ถ้า Code ไหลมาถึงตรงนี้ได้ แปลว่าเป็น CUSTOMER แน่นอน
+    
+    # 1. ค้นหาคิวที่ต้องการจอง
+    queue = db.query(QueueSlots).filter(QueueSlots.id == queue_id).first()
+
+    # 2. ตรวจสอบว่าคิวว่างจริงไหม (กันคนแอบจองซ้ำ)
+    if not queue or queue.status != BookedStatus.AVAILABLE:
+        raise HTTPException(status_code=400, detail="ขออภัย คิวนี้ถูกจองไปแล้ว")
+
+    # 3. บันทึกการจองโดยใช้ ID ของคนที่ Login อยู่
+    queue.status = BookedStatus.BOOKED
+    queue.customer_id = current_customer.id  # ใช้ ID จาก Token โดยตรง (ปลอดภัยที่สุด)
+    
+    db.commit()
+    db.refresh(queue)
+
+    return {
+        "message": "จองสำเร็จ",
+        "queue_id": queue.id,
+        "customer_name": current_customer.username
+    }
