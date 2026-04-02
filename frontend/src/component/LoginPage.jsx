@@ -101,7 +101,7 @@ export default function Login() {
                     </div>
 
                     <div className="helper-links">
-                        <span onClick={() => navigate("/pre-register")}>ต้องการสมัครบัญชี?</span>
+                        <span onClick={() => navigate("/register")}>ต้องการสมัครบัญชี?</span>
                         <span onClick={() => navigate("/reset-password")}>ลืมรหัสผ่าน?</span>
                     </div>
 
