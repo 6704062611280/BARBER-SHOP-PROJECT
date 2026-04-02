@@ -3,6 +3,37 @@ import { useState, useContext } from "react"
 import { DataContext } from "../DataContext"
 import "./style/ChangePasswordPage.css"
 
+// --- ย้าย EyeIcon ออกมาข้างนอกเพื่อป้องกัน Re-creation ---
+const EyeIcon = ({ open }) => (
+  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    {open
+      ? <><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></>
+      : <><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></>
+    }
+  </svg>
+)
+
+// --- ย้าย FieldRow ออกมานอก Component หลัก (สำคัญมาก: แก้ Bug พิมพ์ได้ตัวเดียว) ---
+const FieldRow = ({ label, fieldKey, showKey, placeholder, value, onChange, showStatus, onToggleShow }) => (
+  <div className="cp-field">
+    <label className="cp-label">{label}</label>
+    <div className="cp-input-wrap">
+      <input
+        className="cp-input"
+        type={showStatus ? "text" : "password"}
+        required
+        value={value}
+        onChange={e => onChange(fieldKey, e.target.value)}
+        placeholder={placeholder}
+      />
+      <button type="button" className="cp-eye"
+        onClick={() => onToggleShow(showKey)}>
+        <EyeIcon open={showStatus} />
+      </button>
+    </div>
+  </div>
+)
+
 export default function ChangePasswordPage() {
   const navigate = useNavigate()
   const { baseURL } = useContext(DataContext)
@@ -15,8 +46,12 @@ export default function ChangePasswordPage() {
   const [show, setShow] = useState({ cur: false, nw: false, cf: false })
 
   const handleChange = (field, value) => {
-    setErrorMsg("")
+    if (errorMsg) setErrorMsg("")
     setForm(prev => ({ ...prev, [field]: value }))
+  }
+
+  const toggleShow = (key) => {
+    setShow(prev => ({ ...prev, [key]: !prev[key] }))
   }
 
   const strength = (pw) => {
@@ -28,6 +63,7 @@ export default function ChangePasswordPage() {
     if (/[^A-Za-z0-9]/.test(pw))  s++
     return s
   }
+
   const pwStrength = strength(form.newPassword)
   const strengthLabel = ["", "อ่อน", "พอใช้", "ดี", "แข็งแกร่ง"][pwStrength]
   const strengthColor = ["", "#e07b54", "#e8b84b", "#6dbf8c", "#5b9bd5"][pwStrength]
@@ -66,35 +102,6 @@ export default function ChangePasswordPage() {
     }
   }
 
-  const EyeIcon = ({ open }) => (
-    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      {open
-        ? <><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></>
-        : <><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></>
-      }
-    </svg>
-  )
-
-  const FieldRow = ({ label, fieldKey, showKey, placeholder }) => (
-    <div className="cp-field">
-      <label className="cp-label">{label}</label>
-      <div className="cp-input-wrap">
-        <input
-          className="cp-input"
-          type={show[showKey] ? "text" : "password"}
-          required
-          value={form[fieldKey]}
-          onChange={e => handleChange(fieldKey, e.target.value)}
-          placeholder={placeholder}
-        />
-        <button type="button" className="cp-eye"
-          onClick={() => setShow(s => ({ ...s, [showKey]: !s[showKey] }))}>
-          <EyeIcon open={show[showKey]} />
-        </button>
-      </div>
-    </div>
-  )
-
   return (
     <div className="cp-page">
       <button className="cp-back" onClick={() => navigate(-1)}>
@@ -124,8 +131,26 @@ export default function ChangePasswordPage() {
           )}
 
           <form onSubmit={handleSubmit}>
-            <FieldRow label="รหัสผ่านปัจจุบัน" fieldKey="currentPassword" showKey="cur" placeholder="กรอกรหัสผ่านปัจจุบัน" />
-            <FieldRow label="รหัสผ่านใหม่"      fieldKey="newPassword"      showKey="nw"  placeholder="อย่างน้อย 8 ตัวอักษร" />
+            <FieldRow 
+              label="รหัสผ่านปัจจุบัน" 
+              fieldKey="currentPassword" 
+              showKey="cur" 
+              placeholder="กรอกรหัสผ่านปัจจุบัน" 
+              value={form.currentPassword}
+              onChange={handleChange}
+              showStatus={show.cur}
+              onToggleShow={toggleShow}
+            />
+            <FieldRow 
+              label="รหัสผ่านใหม่" 
+              fieldKey="newPassword" 
+              showKey="nw" 
+              placeholder="อย่างน้อย 8 ตัวอักษร" 
+              value={form.newPassword}
+              onChange={handleChange}
+              showStatus={show.nw}
+              onToggleShow={toggleShow}
+            />
 
             {form.newPassword && (
               <div className="cp-strength-wrap">
@@ -139,7 +164,16 @@ export default function ChangePasswordPage() {
               </div>
             )}
 
-            <FieldRow label="ยืนยันรหัสผ่านใหม่" fieldKey="confirmPassword" showKey="cf" placeholder="กรอกซ้ำอีกครั้ง" />
+            <FieldRow 
+              label="ยืนยันรหัสผ่านใหม่" 
+              fieldKey="confirmPassword" 
+              showKey="cf" 
+              placeholder="กรอกซ้ำอีกครั้ง" 
+              value={form.confirmPassword}
+              onChange={handleChange}
+              showStatus={show.cf}
+              onToggleShow={toggleShow}
+            />
 
             {form.confirmPassword && (
               <div className={`cp-match ${form.newPassword === form.confirmPassword ? 'ok' : 'fail'}`}>
@@ -154,9 +188,9 @@ export default function ChangePasswordPage() {
         </div>
       </div>
 
-      {/* Confirm Modal */}
+      {/* Modal Confirm & Success คงเดิม */}
       {showConfirm && (
-        <div className="cp-overlay">
+        <div className="cp-overlay" onClick={() => setShowConfirm(false)}>
           <div className="cp-modal" onClick={e => e.stopPropagation()}>
             <div className="cp-modal-emoji">🔑</div>
             <h3 className="cp-modal-title">ยืนยันการเปลี่ยนรหัสผ่าน?</h3>
@@ -169,10 +203,9 @@ export default function ChangePasswordPage() {
         </div>
       )}
 
-      {/* Success Modal */}
       {showSuccess && (
         <div className="cp-overlay">
-          <div className="cp-modal" onClick={e => e.stopPropagation()}>
+          <div className="cp-modal">
             <div className="cp-success-ring">
               <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <polyline points="20 6 9 17 4 12"/>

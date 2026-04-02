@@ -21,14 +21,17 @@ function fmtDate(d) {
   })
 }
 
-// เช็คว่าเวลาคิวผ่านมาหรือยัง
+// ปรับให้ยืดหยุ่นขึ้น: คิวที่ผ่านมาไม่เกิน 15 นาที ยังไม่ถือว่า Expired สำหรับช่าง
 const checkIsPast = (startTime) => {
   if (!startTime) return false;
   const [h, m] = startTime.split(':').map(Number);
   const now = new Date();
   const qTime = new Date();
   qTime.setHours(h, m, 0, 0);
-  return now > qTime;
+  
+  // ถ้าเวลาปัจจุบัน เลยเวลาคิวไปมากกว่า 15 นาที ถึงจะล็อค
+  const bufferTime = 15 * 60 * 1000; 
+  return now.getTime() > (qTime.getTime() + bufferTime);
 };
 
 function ConfirmModal({ data, onClose, onConfirm, loading }) {
@@ -56,14 +59,14 @@ export default function WorkTablePage() {
   const navigate = useNavigate()
   const { baseURL } = useContext(DataContext)
 
-  const [queues,     setQueues]    = useState([])
-  const [chairInfo,  setChairInfo] = useState(null)
-  const [userInfo,   setUserInfo]  = useState(null)
-  const [loading,    setLoading]   = useState(true)
-  const [error,      setError]     = useState("")
+  const [queues,      setQueues]    = useState([])
+  const [chairInfo,   setChairInfo] = useState(null)
+  const [userInfo,    setUserInfo]  = useState(null)
+  const [loading,     setLoading]   = useState(true)
+  const [error,       setError]     = useState("")
   const [actionLoading, setAL]     = useState(false)
-  const [modal,      setModal]     = useState(null)
-  const [toast,      setToast]     = useState(null)
+  const [modal,       setModal]     = useState(null)
+  const [toast,       setToast]     = useState(null)
 
   const today = useMemo(() => new Date().toISOString().split("T")[0], [])
   const token = localStorage.getItem("token")
@@ -80,29 +83,27 @@ export default function WorkTablePage() {
   const fetchData = useCallback(async () => {
     setLoading(true); setError("")
     try {
-      // 1. ดึงข้อมูล Profile ของคนเข้าเว็บปัจจุบันก่อน
       const userRes = await fetch(`${baseURL}/auth/profile`, { headers })
       if (!userRes.ok) throw new Error("ยืนยันตัวตนไม่สำเร็จ")
       const userData = await userRes.json()
       setUserInfo(userData)
 
-      // 2. ดึงข้อมูลเก้าอี้ทั้งหมดเพื่อหาตัวที่เป็นของช่างคนนี้
       const chairRes = await fetch(`${baseURL}/queue_service/chairs?dateshop=${today}`, { headers })
       if (!chairRes.ok) throw new Error("โหลดข้อมูลเก้าอี้ไม่สำเร็จ")
       const chairData = await chairRes.json()
       
-      // ค้นหาเก้าอี้ที่ barber_name ตรงกับชื่อช่าง (เช็คทั้ง firstname หรือ username)
       const myChair = chairData.chairs.find(c => 
         c.barber_name === userData.firstname || 
         c.barber_name === userData.username
-      ) || chairData.chairs[0]; // fallback ตัวแรกถ้าไม่เจอชื่อตรงกัน
+      ) || chairData.chairs[0];
       
       setChairInfo(myChair)
 
-      // 3. ดึงคิวของเก้าอี้ตัวนั้น
       const qRes = await fetch(`${baseURL}/queue_service/queues?chair_id=${myChair.id}&dateshop=${today}`, { headers })
       if (!qRes.ok) throw new Error("โหลดข้อมูลคิวไม่สำเร็จ")
-      setQueues(await qRes.json())
+      const qData = await qRes.json()
+      // เรียงคิวตามเวลา
+      setQueues(qData.sort((a, b) => a.start_time.localeCompare(b.start_time)))
     } catch (e) { 
       setError(e.message) 
     } finally { 
@@ -112,39 +113,44 @@ export default function WorkTablePage() {
 
   useEffect(() => { if (baseURL) fetchData() }, [fetchData])
 
-  const doAction = async (endpoint) => {
+  const doAction = async (endpoint, method = "POST") => {
     setAL(true)
     try {
-      const res = await fetch(`${baseURL}${endpoint}`, { method: "POST", headers })
+      const res = await fetch(`${baseURL}${endpoint}`, { method, headers })
       const d = await res.json()
       if (!res.ok) throw new Error(d.detail || "เกิดข้อผิดพลาด")
-      showToast(d.message || "อัปเดตสถานะสำเร็จ")
-      fetchData()
-    } catch (e) { showToast(e.message, false) }
-    finally { setAL(false); setModal(null) }
+      showToast(d.message || "อัปเดตสำเร็จ")
+      fetchData() // รีโหลดข้อมูลใหม่
+    } catch (e) { 
+      showToast(e.message, false) 
+    } finally { 
+      setAL(false); 
+      setModal(null) 
+    }
   }
 
-  // --- Modal Actions ---
+  // --- Modal Actions (ตรวจสอบ Endpoint กับ Backend ของคุณอีกครั้ง) ---
   const openWalkin = (q) => setModal({
-    icon: "🚶", title: "ลูกค้า Walk-In", desc: `เริ่มบริการทันที รอบเวลา ${fmtTime(q.start_time)}`,
-    confirmLabel: "เช็คอิน",
-    onConfirm: () => doAction(`/queue_service/chairs/${chairInfo.id}/queues/${q.id}/checkin`)
+    icon: "🚶", title: "เปิดคิว Walk-In", desc: `เริ่มบริการลูกค้าทันที รอบเวลา ${fmtTime(q.start_time)}`,
+    confirmLabel: "เริ่มงาน",
+    // บาง Backend ใช้ /walkin แทน /checkin สำหรับคิวที่ยังว่าง
+    onConfirm: () => doAction(`/queue_service/chairs/${chairInfo.id}/queues/${q.id}/walkin`)
   })
 
   const openCheckin = (q) => setModal({
-    icon: "✅", title: "ยืนยันเช็คอิน", desc: `ลูกค้าคิวเวลา ${fmtTime(q.start_time)} มาถึงแล้ว`,
+    icon: "✅", title: "ยืนยันเช็คอิน", desc: `ลูกค้าคิว ${fmtTime(q.start_time)} มาถึงแล้วใช่หรือไม่?`,
     confirmLabel: "เช็คอิน",
     onConfirm: () => doAction(`/queue_service/chairs/${chairInfo.id}/queues/${q.id}/checkin`)
   })
 
   const openComplete = (q) => setModal({
-    icon: "🎉", title: "เสร็จสิ้นบริการ", desc: "ยืนยันการปิดงานคิวนี้",
-    confirmLabel: "เสร็จสิ้น",
+    icon: "🎉", title: "เสร็จสิ้นบริการ", desc: "ตัดผมเสร็จเรียบร้อยและต้องการปิดคิวนี้ใช่หรือไม่?",
+    confirmLabel: "ปิดงาน",
     onConfirm: () => doAction(`/queue_service/chairs/${chairInfo.id}/queues/${q.id}/complete`)
   })
 
   const openCancel = (q) => setModal({
-    icon: "❌", title: "ยกเลิกคิว", desc: `ยกเลิกคิวเวลา ${fmtTime(q.start_time)}`,
+    icon: "❌", title: "ยกเลิกคิว", desc: `ต้องการยกเลิกคิวรอบ ${fmtTime(q.start_time)} ใช่หรือไม่?`,
     confirmLabel: "ยืนยันยกเลิก", danger: true,
     onConfirm: () => doAction(`/queue_service/chairs/${chairInfo.id}/queues/${q.id}/cancel`)
   })
@@ -153,17 +159,15 @@ export default function WorkTablePage() {
     <div className="wt-page">
       {toast && <div className={`wt-toast ${toast.ok ? "ok" : "fail"}`}>{toast.msg}</div>}
 
-      {/* Header */}
       <div className="wt-header">
         <button className="wt-back" onClick={() => navigate(-1)}>←</button>
         <div className="wt-header-info">
           <h1 className="wt-title">ตารางงานของฉัน</h1>
           <span className="wt-date">{fmtDate(today)}</span>
         </div>
-        <button className="wt-refresh-btn" onClick={fetchData}>🔄</button>
+        <button className="wt-refresh-btn" onClick={fetchData} disabled={loading}>🔄</button>
       </div>
 
-      {/* Chair Bar: แสดงชื่อช่างที่ล็อกอินและชื่อเก้าอี้ */}
       {chairInfo && (
         <div className="wt-chair-bar">
           <div className="wt-chip">🪑 {chairInfo.name}</div>
@@ -175,15 +179,15 @@ export default function WorkTablePage() {
       )}
 
       <div className="wt-body">
-        {loading && <div className="wt-loading">กำลังโหลด...</div>}
-        {!loading && error && <div className="wt-error">{error}</div>}
-
-        {queues.map((q, idx) => {
+        {loading && <div className="wt-loading">กำลังโหลดข้อมูลคิว...</div>}
+        {!loading && queues.length === 0 && <div className="wt-empty">ไม่มีข้อมูลคิวในวันนี้</div>}
+        
+        {queues.map((q) => {
           const isPast = checkIsPast(q.start_time);
           const isExpired = q.status === "AVAILABLE" && isPast;
           const meta = isExpired ? STATUS_META.EXPIRED : (STATUS_META[q.status] || STATUS_META.AVAILABLE);
           
-          const isAvail   = q.status === "AVAILABLE" && !isPast;
+          const isAvail   = q.status === "AVAILABLE" && !isExpired;
           const isBooked  = q.status === "BOOKED";
           const isCheckin = q.status === "CHECKIN";
           const isDone    = ["COMPLETE","CANCELLED","NO_SHOW"].includes(q.status) || isExpired;
@@ -203,22 +207,43 @@ export default function WorkTablePage() {
                   <span className="wt-status-chip" style={{ color: meta.color, background: meta.bg }}>
                     {meta.label}
                   </span>
-                  {q.status_user && <span className="wt-type">{q.status_user === "ONLINE" ? "📱 App" : "🚶 Walk-In"}</span>}
+                  {q.status_user && (
+                    <span className="wt-type">
+                      {q.status_user === "ONLINE" ? "📱 App" : "🚶 Walk-In"}
+                    </span>
+                  )}
                 </div>
 
                 {(isBooked || isCheckin) && (
-                  <div className="wt-cust">ลูกค้าคิว #{q.id.toString().slice(-3)}</div>
+                  <div className="wt-cust">
+                    <strong>คิวที่:</strong> #{q.id.toString().slice(-4)}
+                  </div>
                 )}
 
                 <div className="wt-actions">
-                  {isAvail && <button className="wt-act walkin" onClick={() => openWalkin(q)}>+ Walk-In</button>}
+                  {/* ปุ่ม Walk-In จะแสดงเฉพาะคิวที่ว่างและยังไม่เลยเวลา (Buffer 15 นาที) */}
+                  {isAvail && (
+                    <button className="wt-act walkin" onClick={() => openWalkin(q)}>
+                      + Walk-In
+                    </button>
+                  )}
+                  
                   {isBooked && (
                     <>
-                      <button className="wt-act checkin" onClick={() => openCheckin(q)}>เช็คอิน</button>
-                      <button className="wt-act cancel-sm" onClick={() => openCancel(q)}>ยกเลิก</button>
+                      <button className="wt-act checkin" onClick={() => openCheckin(q)}>
+                        เช็คอิน
+                      </button>
+                      <button className="wt-act cancel-sm" onClick={() => openCancel(q)}>
+                        ยกเลิก
+                      </button>
                     </>
                   )}
-                  {isCheckin && <button className="wt-act complete" onClick={() => openComplete(q)}>เสร็จสิ้น ✓</button>}
+                  
+                  {isCheckin && (
+                    <button className="wt-act complete" onClick={() => openComplete(q)}>
+                      เสร็จสิ้น ✓
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
@@ -226,9 +251,12 @@ export default function WorkTablePage() {
         })}
       </div>
 
-      <ConfirmModal data={modal} loading={actionLoading}
+      <ConfirmModal 
+        data={modal} 
+        loading={actionLoading}
         onClose={() => !actionLoading && setModal(null)}
-        onConfirm={modal?.onConfirm} />
+        onConfirm={modal?.onConfirm} 
+      />
     </div>
   )
 }

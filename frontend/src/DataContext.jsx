@@ -9,39 +9,58 @@ export function DataProvider({ children }) {
     const [userId, setUserId] = useState(null);
     const [username, setUsername] = useState("ชื่อผู้ใช้งาน");
     const [profileImg, setProfileImg] = useState("");
-    const [userData, setUserData] = useState(null); // เก็บข้อมูลผู้ใช้อื่นๆ (ถ้ามี)
+    const [userData, setUserData] = useState(null);
+
+    // --- State สำหรับหน้า Home / ปรับแต่งเว็บ ---
+    const [heroSlides, setHeroSlides] = useState([]);      // เก็บรูป BANNER
+    const [promoSlides, setPromoSlides] = useState([]);    // เก็บรูป MAIN_IMG
+    const [announcementText, setAnnouncementText] = useState(""); // เก็บ HTML Description
 
     const baseURL = import.meta.env.VITE_API_URL;
 
-    // 🔄 ฟังก์ชันดึงข้อมูล Profile จาก Backend
+    // 🔄 1. ฟังก์ชันดึงข้อมูล Profile
     const fetchUserData = useCallback(async () => {
         const token = localStorage.getItem("token");
         if (!token) return;
-
         try {
             const response = await fetch(`${baseURL}/auth/profile`, {
-                headers: { 
-                    Authorization: `Bearer ${token}`,
-                    "Content-Type": "application/json"
-                },
+                headers: { Authorization: `Bearer ${token}` },
             });
-
             if (response.ok) {
                 const data = await response.json();
-                
-                // อัปเดต State ทุกตัวด้วยข้อมูลจริงจาก DB
                 setUserId(data.id);
                 setUsername(data.username);
                 setProfileImg(data.profile_img || "");
-                setRole(data.rolestatus); // OWNER, EMPLOYEE, CUSTOMER
-                setUserData(data); // เก็บก้อนข้อมูลทั้งหมดเผื่อใช้ในหน้า Profile
+                setRole(data.rolestatus);
+                setUserData(data);
                 setIsLogin(true);
-            } else if (response.status === 401) {
-                // ถ้า Token หมดอายุ หรือไม่ถูกต้อง
+            } else {
                 handleLogout();
             }
         } catch (err) {
             console.error("Fetch user error:", err);
+        }
+    }, [baseURL]);
+
+    // 🔄 2. ฟังก์ชันดึงข้อมูลการตั้งค่าเว็บไซต์ (รูปภาพและข้อความ)
+    const fetchWebsiteConfig = useCallback(async () => {
+        try {
+            // ดึงรูปภาพ
+            const imgRes = await fetch(`${baseURL}/data_service/website/images`);
+            if (imgRes.ok) {
+                const imgData = await imgRes.json();
+                setHeroSlides(imgData.BANNER || []);
+                setPromoSlides(imgData.MAIN_IMG || []);
+            }
+
+            // ดึงข้อความประกาศ
+            const descRes = await fetch(`${baseURL}/data_service/website/description`);
+            if (descRes.ok) {
+                const descData = await descRes.json();
+                setAnnouncementText(descData.massege || "");
+            }
+        } catch (err) {
+            console.error("Fetch website config error:", err);
         }
     }, [baseURL]);
 
@@ -51,30 +70,22 @@ export function DataProvider({ children }) {
         setRole(null);
         setUserId(null);
         setIsLogin(false);
-        setUsername("ชื่อผู้ใช้งาน");
-        setProfileImg("");
         setUserData(null);
     };
 
-    // 🛠 ตรวจสอบสถานะการ Login ครั้งแรกที่เปิดเว็บ
+    // 🛠 โหลดข้อมูลครั้งแรกเมื่อเปิดแอป
     useEffect(() => {
+        fetchWebsiteConfig(); // ดึงข้อมูลหน้าเว็บ (ไม่ต้องรอ Login)
+        
         const token = localStorage.getItem("token");
         if (token) {
             try {
-                // ตรวจสอบเบื้องต้นผ่าน JWT
                 const decoded = jwtDecode(token);
-                const currentTime = Date.now() / 1000;
-                
-                if (decoded.exp < currentTime) {
-                    handleLogout(); // Token หมดอายุ
-                } else {
-                    fetchUserData(); // ดึงข้อมูลล่าสุดจาก DB
-                }
-            } catch (e) {
-                handleLogout();
-            }
+                if (decoded.exp < Date.now() / 1000) handleLogout();
+                else fetchUserData();
+            } catch (e) { handleLogout(); }
         }
-    }, [fetchUserData]);
+    }, [fetchUserData, fetchWebsiteConfig]);
 
     return (
         <DataContext.Provider value={{
@@ -83,10 +94,15 @@ export function DataProvider({ children }) {
             islogin, setIsLogin, 
             username, setUsername, 
             profileImg, setProfileImg,
-            userData, // ส่งก้อนข้อมูลทั้งหมดไปด้วย
+            userData,
             fetchUserData, 
-            handleLogout, // ส่งฟังก์ชัน logout ไปใช้ใน Navbar
-            baseURL
+            handleLogout,
+            baseURL,
+            // ส่ง State และ Function เกี่ยวกับหน้าเว็บออกไป
+            heroSlides, setHeroSlides,
+            promoSlides, setPromoSlides,
+            announcementText, setAnnouncementText,
+            fetchWebsiteConfig
         }}>
             {children}
         </DataContext.Provider>
