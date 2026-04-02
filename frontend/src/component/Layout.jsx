@@ -63,7 +63,7 @@ export default function Layout() {
     if (currentRole === 'CUSTOMER') {
       return (
         <>
-          <button onClick={() => navigateTo("/edit-profile")} className={menuItemClass}>
+          <button onClick={() => navigateTo("/profile")} className={menuItemClass}>
              <img src="/images/icon-edit.png" alt="edit" className="w-5 h-5 mr-3" /> แก้ไขโปรไฟล์
           </button>
           <button onClick={() => navigateTo("/notification")} className={menuItemClass}>
@@ -76,7 +76,7 @@ export default function Layout() {
     if (currentRole === 'EMPLOYEE') {
       return (
         <>
-          <button onClick={() => navigateTo("/edit-profile")} className={menuItemClass}>
+          <button onClick={() => navigateTo("/profile")} className={menuItemClass}>
              <img src="/images/icon-edit.png" alt="edit" className="w-5 h-5 mr-3" /> แก้ไขโปรไฟล์
           </button>
           <button onClick={() => navigateTo("/notification")} className={menuItemClass}>
@@ -92,7 +92,7 @@ export default function Layout() {
     if (currentRole === 'OWNER') {
       return (
         <>
-          <button onClick={() => navigateTo("/edit-profile")} className={menuItemClass}>
+          <button onClick={() => navigateTo("/profile")} className={menuItemClass}>
              <img src="/images/icon-edit.png" alt="edit" className="w-5 h-5 mr-3" /> แก้ไขโปรไฟล์
           </button>
           <button onClick={() => navigateTo("/notification")} className={menuItemClass}>

@@ -1,214 +1,342 @@
 import { useNavigate } from "react-router-dom";
 import { useContext, useState, useEffect } from "react";
 import { DataContext } from "../DataContext";
-
+import "./style/ShopSetting.css";
+ 
 export default function ShopSetting() {
     const navigate = useNavigate();
-    
-    // ดึง Context มาแบบปลอดภัย
-    const context = useContext(DataContext) || {};
-    const shopOpenTime = context.shopOpenTime || "10:00";
-    const shopCloseTime = context.shopCloseTime || "20:00";
-    const shopStatus = context.shopStatus || "open"; 
-    
-    const setShopOpenTime = context.setShopOpenTime || null;
-    const setShopCloseTime = context.setShopCloseTime || null;
-    const setShopStatus = context.setShopStatus || null;
-
-    // State สำหรับเก็บข้อมูลในหน้านี้ก่อนกดเซฟ
-    const [localOpenTime, setLocalOpenTime] = useState("10:00");
-    const [localCloseTime, setLocalCloseTime] = useState("20:00");
-    const [localShopStatus, setLocalShopStatus] = useState("open");
-
-    // State สำหรับระบบ Popup รหัสผ่าน
+    // ✅ FIX: ดึง baseURL จาก context ให้ถูกต้อง (เดิมดึง 2 ครั้งและไม่ได้ใช้ baseURL)
+    const { baseURL, shopOpenTime, shopCloseTime, shopStatus } = useContext(DataContext);
+ 
+    const [localOpenTime, setLocalOpenTime] = useState(shopOpenTime || "10:00");
+    const [localCloseTime, setLocalCloseTime] = useState(shopCloseTime || "20:00");
+    const [localShopStatus, setLocalShopStatus] = useState(shopStatus || "open");
+ 
     const [showPasswordModal, setShowPasswordModal] = useState(false);
-    const [showSuccessModal, setShowSuccessModal] = useState(false);
     const [passwordInput, setPasswordInput] = useState("");
-    const [pendingChange, setPendingChange] = useState(null);
-
-    // ดึงข้อมูลตอนเปิดหน้าเว็บ
+    const [showPassword, setShowPassword] = useState(false);
+    const [loading, setLoading] = useState(false);
+    // ✅ เพิ่ม error state แทน alert
+    const [errorMsg, setErrorMsg] = useState("");
+ 
+    // ✅ FIX: sync เมื่อ context เปลี่ยน
     useEffect(() => {
-        if (shopOpenTime) setLocalOpenTime(shopOpenTime);
+        if (shopOpenTime)  setLocalOpenTime(shopOpenTime);
         if (shopCloseTime) setLocalCloseTime(shopCloseTime);
-        if (shopStatus) setLocalShopStatus(shopStatus);
+        if (shopStatus)    setLocalShopStatus(shopStatus);
     }, [shopOpenTime, shopCloseTime, shopStatus]);
-
-    const handleSave = () => {
-        if (setShopOpenTime && setShopCloseTime && setShopStatus) {
-            setShopOpenTime(localOpenTime);
-            setShopCloseTime(localCloseTime);
-            setShopStatus(localShopStatus);
-            alert("✅ บันทึกการตั้งค่าเรียบร้อยแล้ว!");
-            navigate("/");
-        } else {
-            alert("⚠️ ยังไม่สามารถบันทึกได้! กรุณาไปเพิ่ม State ใน DataContext.jsx");
-        }
-    };
-
-    const handleProtectedChange = (field, value) => {
-        setPendingChange({ field, value });
+ 
+    const handleConfirmClick = () => {
         setPasswordInput("");
+        setErrorMsg("");
         setShowPasswordModal(true);
     };
-
-    const confirmPassword = () => {
-        if (passwordInput === "1234") {
+ 
+    const confirmPassword = async () => {
+        if (!passwordInput.trim()) {
+            setErrorMsg("กรุณากรอกรหัสผ่าน");
+            return;
+        }
+ 
+        try {
+            setLoading(true);
+            setErrorMsg("");
+ 
+            // ✅ Step 1: ตรวจสอบรหัสผ่านเจ้าของร้าน
+            const verifyRes = await fetch(`${baseURL}/auth/verify_owner_password`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${localStorage.getItem("token")}`
+                },
+                body: JSON.stringify({ password: passwordInput })
+            });
+ 
+            if (!verifyRes.ok) {
+                const err = await verifyRes.json().catch(() => ({}));
+                throw new Error(err.detail || "รหัสผ่านไม่ถูกต้อง");
+            }
+ 
+            // ✅ Step 2: ตั้งค่าเวลาเปิด-ปิด
+            // FIX: backend รับ query params ไม่ใช่ body json
+            const openingParams = new URLSearchParams({
+                open_time: localOpenTime + ":00",
+                close_time: localCloseTime + ":00",
+                is_open: localShopStatus === "open"
+            });
+ 
+            const openingRes = await fetch(`${baseURL}/queue_service/set_opening?${openingParams}`, {
+                method: "POST",
+                headers: {
+                    "Authorization": `Bearer ${localStorage.getItem("token")}`
+                }
+            });
+ 
+            if (!openingRes.ok) {
+                const err = await openingRes.json().catch(() => ({}));
+                throw new Error(err.detail || "ตั้งค่าเวลาไม่สำเร็จ");
+            }
+ 
+            // ✅ Step 3: เปิด/ปิดร้าน
+            if (localShopStatus === "open") {
+                const openRes = await fetch(`${baseURL}/queue_service/open_shop`, {
+                    method: "POST",
+                    headers: {
+                        "Authorization": `Bearer ${localStorage.getItem("token")}`
+                    }
+                });
+                // FIX: ไม่ throw ถ้า 400 (อาจสร้างคิวซ้ำ) แค่ log
+                if (!openRes.ok) {
+                    const err = await openRes.json().catch(() => ({}));
+                    console.warn("open_shop warning:", err.detail);
+                }
+            } else {
+                const closeRes = await fetch(`${baseURL}/queue_service/close_shop`, {
+                    method: "POST",
+                    headers: {
+                        "Authorization": `Bearer ${localStorage.getItem("token")}`
+                    }
+                });
+                if (!closeRes.ok) {
+                    const err = await closeRes.json().catch(() => ({}));
+                    console.warn("close_shop warning:", err.detail);
+                }
+            }
+ 
             setShowPasswordModal(false);
-            setShowSuccessModal(true);
-        } else {
-            alert("❌ รหัสผ่านไม่ถูกต้อง (ลองใส่ 1234)");
+            navigate("/");
+ 
+        } catch (e) {
+            setErrorMsg(e.message || "เกิดข้อผิดพลาด กรุณาลองใหม่");
+        } finally {
+            setLoading(false);
         }
     };
-
-    const handleSuccessDone = () => {
-        if (pendingChange.field === 'openTime') setLocalOpenTime(pendingChange.value);
-        if (pendingChange.field === 'closeTime') setLocalCloseTime(pendingChange.value);
-        if (pendingChange.field === 'shopStatus') setLocalShopStatus(pendingChange.value);
-        
-        setShowSuccessModal(false);
-        setPendingChange(null);
+ 
+    // ✅ FIX: กด Enter ใน modal ได้เลย
+    const handleModalKeyDown = (e) => {
+        if (e.key === "Enter" && !loading) confirmPassword();
+        if (e.key === "Escape") setShowPasswordModal(false);
     };
-
+ 
     const timeOptions = [
-        "10:00", "11:00", "12:00", "13:00", "14:00", 
-        "15:00", "16:00", "17:00", "18:00", "19:00", "20:00",
+        "10:00","11:00","12:00","13:00","14:00",
+        "15:00","16:00","17:00","18:00","19:00","20:00"
     ];
-
+ 
     return (
-        <div className="min-h-screen bg-[#fffdf9] py-10 px-6 flex justify-center items-start w-full relative">
-            
-            <div className="back-nav" style={{ position: 'absolute', top: '2rem', left: '2rem' }}>
-                <button className="back-btn" onClick={() => navigate("/")} style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 0 }}>
-                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                        <line x1="19" y1="12" x2="5" y2="12"></line>
-                        <polyline points="12 19 5 12 12 5"></polyline>
-                    </svg>
-                </button>
-            </div>
-
-            <div className="w-full max-w-4xl bg-[#FADDC9] shadow-[15px_15px_0px_0px_#D1CCC5] rounded-2xl p-8 border-2 border-[#5D4037]">
-                
-                <h1 style={{ textAlign: 'center' }} className="text-3xl font-bold text-gray-800 mb-8 border-b pb-4 border-black">
-                    จัดการคิว & สถานะร้าน
-                </h1>
-
-                {/* --- ส่วนที่ 1: สถานะร้าน (Shop Status) --- */}
-                <div className="mb-8 bg-orange-50 p-6 rounded-xl border border-orange-100">
-                    <h2 className="text-xl font-bold text-black-800 mb-2 text-center">สถานะร้าน (Shop Status)</h2>
-                    <p className="text-sm text-gray-600 mb-6 text-center">ควบคุมการเปิด-ปิดรับจองคิวของร้านในระบบ</p>
-                    
-                    <div className="flex flex-col md:flex-row gap-6 bg-white p-5 rounded-lg border border-orange-200 shadow-sm">
-                        <label className="flex items-center gap-3 cursor-pointer p-2 hover:bg-green-50 rounded-lg transition-colors flex-1">
-                            <input 
-                                type="radio" 
-                                name="shopStatus" 
-                                value="open" 
-                                checked={localShopStatus === "open"} 
-                                onChange={(e) => handleProtectedChange('shopStatus', e.target.value)} 
-                                className="w-6 h-6 text-green-500 focus:ring-green-400" 
+        <div className="ss-page">
+            <button className="ss-back-btn" onClick={() => navigate("/")}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M19 12H5M12 5l-7 7 7 7"/>
+                </svg>
+            </button>
+ 
+            <div className="ss-card">
+                {/* Header */}
+                <div className="ss-card-header">
+                    <h1 className="ss-title">จัดการร้าน</h1>
+                    <p className="ss-subtitle">ตั้งค่าสถานะและเวลาให้บริการ</p>
+                </div>
+ 
+                <div className="ss-divider" />
+ 
+                {/* Status Section */}
+                <div className="ss-section">
+                    <span className="ss-label">สถานะร้านปัจจุบัน</span>
+                    <div className="ss-status-group">
+                        <label className={`ss-status-opt ss-open ${localShopStatus === "open" ? "ss-active-open" : ""}`}>
+                            <input
+                                type="radio"
+                                value="open"
+                                checked={localShopStatus === "open"}
+                                onChange={(e) => setLocalShopStatus(e.target.value)}
                             />
-                            <span className="font-bold text-green-600 text-xl">✅ เปิด (Open)</span>
+                            <div className="ss-status-icon ss-icon-open">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                                    stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <circle cx="12" cy="12" r="5"/>
+                                    <line x1="12" y1="1" x2="12" y2="3"/>
+                                    <line x1="12" y1="21" x2="12" y2="23"/>
+                                    <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+                                    <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+                                    <line x1="1" y1="12" x2="3" y2="12"/>
+                                    <line x1="21" y1="12" x2="23" y2="12"/>
+                                    <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+                                    <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+                                </svg>
+                            </div>
+                            <div className="ss-status-text">
+                                <span className="ss-status-name">เปิดร้าน</span>
+                                <span className="ss-status-desc">พร้อมรับลูกค้า</span>
+                            </div>
+                            <div className={`ss-check ${localShopStatus === "open" ? "ss-check-open" : ""}`}>
+                                {localShopStatus === "open" && (
+                                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none"
+                                        stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                                        <polyline points="20 6 9 17 4 12"/>
+                                    </svg>
+                                )}
+                            </div>
                         </label>
-                        <div className="hidden md:block w-px bg-gray-200"></div>
-                        <label className="flex items-center gap-3 cursor-pointer p-2 hover:bg-red-50 rounded-lg transition-colors flex-1">
-                            <input 
-                                type="radio" 
-                                name="shopStatus" 
-                                value="close" 
-                                checked={localShopStatus === "close"} 
-                                onChange={(e) => handleProtectedChange('shopStatus', e.target.value)} 
-                                className="w-6 h-6 text-red-500 focus:ring-red-400" 
+ 
+                        <label className={`ss-status-opt ss-close ${localShopStatus === "close" ? "ss-active-close" : ""}`}>
+                            <input
+                                type="radio"
+                                value="close"
+                                checked={localShopStatus === "close"}
+                                onChange={(e) => setLocalShopStatus(e.target.value)}
                             />
-                            <span className="font-bold text-red-600 text-xl">❌ ปิด (Close)</span>
+                            <div className="ss-status-icon ss-icon-close">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                                    stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <circle cx="12" cy="12" r="10"/>
+                                    <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/>
+                                </svg>
+                            </div>
+                            <div className="ss-status-text">
+                                <span className="ss-status-name">ปิดร้าน</span>
+                                <span className="ss-status-desc">หยุดรับออร์เดอร์</span>
+                            </div>
+                            <div className={`ss-check ${localShopStatus === "close" ? "ss-check-close" : ""}`}>
+                                {localShopStatus === "close" && (
+                                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none"
+                                        stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                                        <polyline points="20 6 9 17 4 12"/>
+                                    </svg>
+                                )}
+                            </div>
                         </label>
                     </div>
                 </div>
-
-                {/* --- 🌟 ส่วนที่ 2: ช่วงเวลาคิว (จะแสดงผลเฉพาะตอนเลือก "เปิดรับจอง" เท่านั้น) --- */}
+ 
+                {/* Time Section — แสดงเฉพาะตอนเปิดร้าน */}
                 {localShopStatus === "open" && (
-                    <div className="mb-10 bg-orange-50 p-6 rounded-xl border border-orange-100 flex flex-col items-center">
-                        <h2 className="text-xl font-bold text-black-800 mb-2 text-center">ช่วงเวลาคิว</h2>
-                        <p className="text-sm text-gray-600 mb-6 text-center">กำหนดเวลาเปิดและปิดร้าน (เพิ่ม-ลดได้ทีละ 1 ชั่วโมง)</p>
-                        
-                        <div className="flex flex-row items-center gap-4 bg-white p-4 rounded-lg border border-orange-200 shadow-sm w-full max-w-md justify-center">
-                            <select 
-                                value={localOpenTime}
-                                onChange={(e) => setLocalOpenTime(e.target.value)}
-                                className="p-2 border border-orange-300 rounded-lg focus:ring-2 focus:ring-orange-500 outline-none text-lg font-bold text-center cursor-pointer bg-gray-50"
-                            >
-                                {timeOptions.map(time => (
-                                    <option key={`open-${time}`} value={time}>{time}</option>
-                                ))}
-                            </select>
-
-                            <span className="text-xl font-bold text-gray-600">-</span>
-
-                            <select 
-                                value={localCloseTime}
-                                onChange={(e) => setLocalCloseTime(e.target.value)}
-                                className="p-2 border border-orange-300 rounded-lg focus:ring-2 focus:ring-orange-500 outline-none text-lg font-bold text-center cursor-pointer bg-gray-50"
-                            >
-                                {timeOptions.map(time => (
-                                    <option key={`close-${time}`} value={time} disabled={time <= localOpenTime}>{time}</option>
-                                ))}
-                            </select>
+                    <div className="ss-section ss-fade-in">
+                        <span className="ss-label">ช่วงเวลาให้บริการ</span>
+                        <div className="ss-time-row">
+                            <div className="ss-time-box">
+                                <span className="ss-time-sub">เปิด</span>
+                                <select
+                                    value={localOpenTime}
+                                    onChange={(e) => setLocalOpenTime(e.target.value)}
+                                >
+                                    {timeOptions.map(t => (
+                                        <option key={t} value={t}>{t} น.</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <span className="ss-time-sep">—</span>
+                            <div className="ss-time-box">
+                                <span className="ss-time-sub">ปิด</span>
+                                <select
+                                    value={localCloseTime}
+                                    onChange={(e) => setLocalCloseTime(e.target.value)}
+                                >
+                                    {timeOptions.map(t => (
+                                        // ✅ FIX: เปรียบเทียบเวลาถูกต้อง
+                                        <option key={t} value={t} disabled={t <= localOpenTime}>
+                                            {t} น.
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
                         </div>
+                        {/* ✅ เพิ่ม: แสดง duration ที่เลือก */}
+                        <p className="ss-time-hint">
+                            ระยะเวลาเปิด {
+                                (() => {
+                                    const [oh, om] = localOpenTime.split(":").map(Number);
+                                    const [ch, cm] = localCloseTime.split(":").map(Number);
+                                    const diff = (ch * 60 + cm) - (oh * 60 + om);
+                                    return diff > 0 ? `${diff / 60} ชั่วโมง` : "—";
+                                })()
+                            }
+                        </p>
                     </div>
                 )}
-
-                {/* --- ปุ่มบันทึก --- */}
-                <div className="flex justify-end gap-4 justify-center">
-                    <button onClick={() => navigate("/")} className="px-6 py-3 text-gray-600 font-bold rounded-lg hover:bg-gray-100 transition-colors bg-white">ยกเลิก</button>
-                    <button onClick={handleSave} className="bg-[#FFA333] hover:bg-[#ff8a00] text-black font-bold px-8 py-3 rounded-lg shadow-md transition-colors text-lg">
-                        ยืนยัน
+ 
+                {/* Actions */}
+                <div className="ss-footer">
+                    <button className="ss-btn-cancel" onClick={() => navigate("/")}>
+                        ยกเลิก
+                    </button>
+                    <button className="ss-btn-confirm" onClick={handleConfirmClick}>
+                        บันทึกการตั้งค่า
                     </button>
                 </div>
-
             </div>
-
-            {/* Popup ใส่รหัสผ่าน */}
+ 
+            {/* ─── Password Modal ─────────────────────── */}
             {showPasswordModal && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 transition-opacity">
-                    <div className="bg-white rounded-2xl p-8 max-w-sm w-full shadow-2xl relative border-2 border-[#5D4037] flex flex-col items-center">
-                        <button className="absolute top-4 right-4 text-gray-400 hover:text-gray-800" onClick={() => setShowPasswordModal(false)}>
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <line x1="18" y1="6" x2="6" y2="18"></line>
-                                <line x1="6" y1="6" x2="18" y2="18"></line>
+                <div className="ss-modal-overlay" onClick={() => setShowPasswordModal(false)}>
+                    <div className="ss-modal" onClick={(e) => e.stopPropagation()} onKeyDown={handleModalKeyDown}>
+                        <div className="ss-modal-icon">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+                                stroke="#8B6020" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <rect x="3" y="11" width="18" height="11" rx="2"/>
+                                <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
                             </svg>
-                        </button>
-                        <h3 className="text-xl font-bold text-gray-800 mb-6 mt-2">ยืนยันรหัสผ่าน</h3>
-                        <input 
-                            type="password" 
-                            placeholder="รหัสผ่าน" 
-                            value={passwordInput}
-                            onChange={(e) => setPasswordInput(e.target.value)}
-                            className="w-full p-4 border-2 border-orange-200 rounded-xl mb-8 outline-none focus:border-orange-500 text-center text-lg tracking-widest"
-                        />
-                        <div className="flex gap-4 w-full">
-                            <button onClick={() => setShowPasswordModal(false)} className="flex-1 py-3 bg-gray-200 text-gray-700 font-bold rounded-xl hover:bg-gray-300 transition-colors">
+                        </div>
+                        <h3 className="ss-modal-title">ยืนยันสิทธิ์เจ้าของร้าน</h3>
+                        <p className="ss-modal-sub">กรุณากรอกรหัสผ่านเพื่อบันทึกการตั้งค่า</p>
+ 
+                        <div className="ss-pw-wrap">
+                            <input
+                                className="ss-pw-input"
+                                type={showPassword ? "text" : "password"}
+                                placeholder="รหัสผ่านของคุณ"
+                                value={passwordInput}
+                                onChange={(e) => { setPasswordInput(e.target.value); setErrorMsg(""); }}
+                                autoFocus
+                            />
+                            <button
+                                type="button"
+                                className="ss-pw-eye"
+                                onClick={() => setShowPassword(p => !p)}
+                                tabIndex={-1}
+                            >
+                                {showPassword ? (
+                                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+                                        stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
+                                        <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>
+                                        <line x1="1" y1="1" x2="23" y2="23"/>
+                                    </svg>
+                                ) : (
+                                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+                                        stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                                        <circle cx="12" cy="12" r="3"/>
+                                    </svg>
+                                )}
+                            </button>
+                        </div>
+ 
+                        {/* ✅ แสดง error ใน modal แทน alert */}
+                        {errorMsg && <p className="ss-error-msg">{errorMsg}</p>}
+ 
+                        <div className="ss-modal-actions">
+                            <button
+                                className="ss-m-cancel"
+                                onClick={() => setShowPasswordModal(false)}
+                                disabled={loading}
+                            >
                                 ยกเลิก
                             </button>
-                            <button onClick={confirmPassword} className="flex-1 py-3 bg-[#FFA333] hover:bg-[#ff8a00] text-black font-bold rounded-xl shadow-md transition-colors">
-                                ยืนยัน
+                            <button
+                                className="ss-m-confirm"
+                                onClick={confirmPassword}
+                                disabled={loading || !passwordInput.trim()}
+                            >
+                                {loading ? (
+                                    <span className="ss-spinner-row">
+                                        <span className="ss-spinner" /> กำลังตรวจสอบ...
+                                    </span>
+                                ) : "ยืนยัน"}
                             </button>
                         </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Popup สำเร็จ */}
-            {showSuccessModal && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 transition-opacity">
-                    <div className="bg-white rounded-2xl p-8 max-w-sm w-full shadow-2xl flex flex-col items-center border-2 border-[#5D4037]">
-                        <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mb-6">
-                            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                                <polyline points="20 6 9 17 4 12"></polyline>
-                            </svg>
-                        </div>
-                        <h3 className="text-2xl font-bold text-gray-800 mb-8">รหัสผ่านถูกต้อง</h3>
-                        <button onClick={handleSuccessDone} className="w-full py-4 bg-[#FFA333] hover:bg-[#ff8a00] text-black font-bold rounded-xl shadow-md transition-colors text-lg">
-                            เสร็จสิ้น
-                        </button>
                     </div>
                 </div>
             )}
