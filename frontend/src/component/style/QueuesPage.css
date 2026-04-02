@@ -1,123 +1,44 @@
-.q-page-container {
-    background-color: #fcf8f3;
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding-bottom: 30px;
+.pq-main-bg { background: #f8fafc; min-height: 100vh; font-family: 'Kanit', sans-serif; }
+.pq-glass-header { background: rgba(255,255,255,0.8); backdrop-filter: blur(10px); padding: 20px; position: sticky; top: 0; z-index: 100; display: flex; align-items: center; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+.pq-back-btn { background: white; border: none; width: 40px; height: 40px; border-radius: 12px; margin-right: 15px; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+
+.pq-timeline-container { max-width: 500px; margin: 20px auto; padding: 0 15px; display: flex; flex-direction: column; gap: 15px; }
+
+/* การ์ดปกติ */
+.pq-time-card { background: white; border-radius: 20px; display: flex; border: 1px solid #eee; overflow: hidden; transition: 0.3s; }
+
+/* คิวของคุณ (เด่นพิเศษ) */
+.pq-time-card.is-mine { 
+    background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); 
+    color: white; 
+    border: none; 
+    box-shadow: 0 10px 20px rgba(59, 130, 246, 0.4);
 }
 
-.q-nav { width: 100%; max-width: 500px; padding: 20px; }
-.q-back-btn { background: none; border: none; cursor: pointer; }
+.pq-time-side { padding: 15px; background: rgba(0,0,0,0.03); min-width: 80px; text-align: center; display: flex; flex-direction: column; align-items: center; }
+.is-mine .pq-time-side { background: rgba(255,255,255,0.1); }
+.pq-line { width: 2px; height: 15px; background: #ddd; margin: 5px 0; }
+.is-mine .pq-line { background: rgba(255,255,255,0.3); }
 
-.q-date-badge {
-    background-color: #ffa133;
-    color: white;
-    padding: 8px 30px;
-    border-radius: 8px;
-    font-weight: bold;
-    margin-bottom: 20px;
+.pq-content-side { padding: 15px; flex: 1; display: flex; align-items: center; justify-content: space-between; }
+.pq-btn-select { background: #10b981; color: white; border: none; padding: 8px 16px; border-radius: 10px; cursor: pointer; font-weight: 600; }
+
+.pq-badge-mine { background: white; color: #1d4ed8; padding: 4px 10px; border-radius: 8px; font-size: 0.8rem; font-weight: 800; display: flex; align-items: center; gap: 5px; }
+
+/* สถานะ NO_SHOW */
+.st-no_show { opacity: 0.5; background: #f1f5f9; }
+
+/* Animation Pulse */
+@keyframes pulse-mine { 
+    0% { transform: scale(1); } 
+    50% { transform: scale(1.02); } 
+    100% { transform: scale(1); } 
 }
-
-.q-card {
-    width: 90%;
-    max-width: 420px;
-    background: #fcebd7; /* พื้นหลังสีนวลๆ ตามรูป */
-    border: 2px solid #8d6e63;
-    border-radius: 24px;
-    padding: 15px;
-    box-shadow: 6px 6px 0px rgba(0,0,0,0.1);
-}
-
-.q-table-header {
-    display: flex;
-    background-color: white;
-    padding: 12px;
-    border-bottom: 2px solid #8d6e63;
-    font-weight: bold;
-    border-radius: 12px 12px 0 0;
-}
-
-.col-time { width: 40%; text-align: center; }
-.col-status { width: 60%; text-align: center; }
-
-.q-row {
-    display: flex;
-    align-items: center;
-    padding: 12px;
-    background-color: white;
-    margin-bottom: 2px;
-    border-bottom: 1px solid #eee;
-}
-
-.q-time-text { width: 40%; text-align: center; font-weight: bold; }
-.q-action-area { width: 60%; display: flex; justify-content: center; }
-
-.btn-q-available, .label-q-booked {
-    width: 100%;
-    max-width: 150px;
-    padding: 10px;
-    border-radius: 8px;
-    font-weight: bold;
-    text-align: center;
-    border: none;
-}
-
-.btn-q-available {
-    background-color: #1e8b24; /* สีเขียวเข้มตามรูป */
-    color: white;
-    cursor: pointer;
-}
-
-.label-q-booked {
-    background-color: #ff9e9e; /* สีชมพู/แดงตามรูป */
-    color: #333;
-}
+.animate-pulse { animation: pulse-mine 2s infinite ease-in-out; }
 
 /* Modal Styles */
-.q-modal-overlay {
-    position: fixed; inset: 0;
-    background: rgba(0,0,0,0.5);
-    display: flex; justify-content: center; align-items: center;
-    z-index: 2000;
-}
-
-.q-modal-content {
-    background: #fffdf9;
-    width: 90%;
-    max-width: 340px;
-    padding: 30px;
-    border-radius: 20px;
-    border: 3px solid #4e342e; /* ขอบน้ำตาลเข้ม */
-    text-align: center;
-}
-
-.modal-title { font-size: 1.1rem; margin-bottom: 20px; font-weight: bold; }
-.modal-body { margin-bottom: 25px; line-height: 2; font-weight: 500; text-align: left; padding-left: 20px; }
-
-.modal-footer { display: flex; gap: 15px; justify-content: center; }
-
-.btn-modal-cancel {
-    background-color: #ff4d4d; color: white; border: none;
-    padding: 10px 25px; border-radius: 10px; font-weight: bold; cursor: pointer;
-}
-
-.btn-modal-confirm {
-    background-color: #1e8b24; color: white; border: none;
-    padding: 10px 25px; border-radius: 10px; font-weight: bold; cursor: pointer;
-}
-
-.btn-modal-done {
-    background-color: #ff9f33; color: white; border: none;
-    width: 100%; padding: 12px; border-radius: 30px;
-    font-size: 1.1rem; font-weight: bold; cursor: pointer; margin-top: 10px;
-}
-
-.success-icon-wrapper {
-    width: 60px; height: 60px;
-    border: 4px solid black; border-radius: 50%;
-    margin: 0 auto 20px;
-    display: flex; justify-content: center; align-items: center;
-}
-
-.ref-text { font-weight: bold; margin-bottom: 20px; color: #333; }
+.pq-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); backdrop-filter: blur(5px); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+.pq-modal-card { background: white; padding: 30px; border-radius: 25px; text-align: center; width: 90%; max-width: 350px; }
+.pq-modal-btns { display: flex; gap: 10px; margin-top: 20px; }
+.pq-btn-yes { flex: 1; background: #3b82f6; color: white; border: none; padding: 12px; border-radius: 12px; cursor: pointer; font-weight: bold; }
+.pq-btn-no { flex: 1; background: #f1f5f9; border: none; padding: 12px; border-radius: 12px; cursor: pointer; }

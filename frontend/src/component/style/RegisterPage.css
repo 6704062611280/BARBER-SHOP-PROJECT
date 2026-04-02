@@ -189,3 +189,39 @@
     box-sizing: border-box;
 }
 
+/* 🔥 input error */
+.input-error {
+    border: 2px solid #ff5252 !important;
+    background-color: #fff5f5;
+}
+
+/* 🔥 helper text ใต้ input */
+.input-helper {
+    color: #ff5252;
+    font-size: 12px;
+    margin-top: 4px;
+    display: block;
+}
+
+/* 🔥 error box */
+.error-alert-box {
+    background: #ffe5e5;
+    color: #b71c1c;
+    padding: 10px;
+    border-radius: 10px;
+    margin-bottom: 15px;
+    text-align: center;
+}
+
+/* 🔥 shake */
+.shake {
+    animation: shake 0.3s;
+}
+
+@keyframes shake {
+    0% { transform: translateX(0); }
+    25% { transform: translateX(-5px); }
+    50% { transform: translateX(5px); }
+    75% { transform: translateX(-5px); }
+    100% { transform: translateX(0); }
+}

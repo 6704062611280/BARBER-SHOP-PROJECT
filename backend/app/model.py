@@ -42,7 +42,10 @@ class NotificationType(enum.Enum):
     QUEUE_REMINDER  = "QUEUE_REMINDER"   # แจ้งเตือนก่อนถึงคิว
     LEAVE_APPROVED  = "LEAVE_APPROVED"   # จดหมายลาอนุมัติ
     LEAVE_REJECTED  = "LEAVE_REJECTED"   # จดหมายลาปฏิเสธ
-    SYSTEM          = "SYSTEM"    
+    REQUESTE  = "REQUESTE"  #ส่งจดหมายลา
+    SYSTEM_COMPLTE_CHANGED_PASSWORD = "SYSTEM_COMPLTE_CHANGED_PASSWORD"
+    SYSTEM_COMPLTE_RESET_PASSWORD = "SYSTEM_COMPLTE_RESET_PASSWORD"
+    SYSTEM          = "SYSTEM"  
 
 
 class User(Base):
@@ -95,7 +98,11 @@ class Barber(Base):
     unique=True
 )
     user_data:Mapped["User"] = relationship("User", back_populates="barber")
-    leave_letter:Mapped[list["LeaveLetter"]] = relationship("LeaveLetter", back_populates="barber")
+    leave_letter:Mapped[list["LeaveLetter"]] = relationship(
+        "LeaveLetter", 
+        back_populates="barber", 
+        cascade="all, delete-orphan" 
+    )
 
 
 

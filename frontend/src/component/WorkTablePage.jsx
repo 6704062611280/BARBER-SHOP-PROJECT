@@ -1,180 +1,160 @@
-import { useNavigate, useParams } from "react-router-dom"
-import { useState, useContext  } from "react"
-import { DataContext } from "../DataContext"
-import "./style/WorkingTablePage.css"
+import { useState, useEffect, useContext, useCallback } from "react";
+import { DataContext } from "../DataContext";
+import "./style/WorkingTablePage.css";
 
-export default function WorkTablePage(){
-    const navigate = useNavigate();
-    const { chairId } = useParams();
+const STATUS_META = {
+    AVAILABLE: { label: "ว่าง", color: "#22c55e", bg: "rgba(34, 197, 94, 0.1)", dot: "#22c55e" },
+    BOOKED:    { label: "จองออนไลน์", color: "#3b82f6", bg: "rgba(59, 130, 246, 0.1)", dot: "#3b82f6" },
+    CHECKIN:   { label: "กำลังบริการ", color: "#f59e0b", bg: "rgba(245, 158, 11, 0.1)", dot: "#f59e0b" },
+    COMPLETE:  { label: "เสร็จสิ้น", color: "#a855f7", bg: "rgba(168, 85, 247, 0.1)", dot: "#a855f7" },
+    NO_SHOW:   { label: "ไม่มา/ปิดคิว", color: "#94a3b8", bg: "rgba(148, 163, 184, 0.1)", dot: "#94a3b8" },
+};
 
-    const initialSlots = [
-        { id: 1, time: "10.00-11.00", status: "booked", customerName: "นายสมชาย มั่นคง", code: "XXXX", phone: "030-404-5050" },
-        { id: 2, time: "11.00-12.00", status: "booked", customerName: "กิตติพงศ์ ศรีสุวรรณ", code: "XXXX", phone: "081-472-5936" },
-        { id: 3, time: "12.00-13.00", status: "free" },
-        { id: 4, time: "13.00-14.00", status: "booked", customerName: "ธนภัทร วงศ์สวัสดิ์", code: "XXXX", phone: "093-615-2847" },
-        { id: 5, time: "14.00-15.00", status: "booked", customerName: "ภูวดล จันทร์กระจ่าง", code: "XXXX", phone: "086-739-1045" },
-        { id: 6, time: "16.00-17.00", status: "free" },
-        { id: 7, time: "17.00-18.00", status: "booked", customerName: "นราธิป ชัยมงคล", code: "XXXX", phone: "095-482-7613" },
-        { id: 8, time: "18.00-19.00", status: "booked", customerName: "ปฏิภาณ รัตนชัย", code: "XXXX", phone: "089-653-2971" },
-        { id: 9, time: "19.00-20.00", status: "booked", customerName: "ศุภวิชญ์ วัฒนกุล", code: "XXXX", phone: "094-718-3506" }
-    ];
+export default function WorkTablePage() {
+    const { baseURL, fetchWithAuth, userData } = useContext(DataContext);
+    const [workData, setWorkData] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+    const [actionLoading, setActionLoading] = useState(false);
 
-    const [slots, setSlots] = useState(initialSlots);
+    // 1. ฟังก์ชันดึงข้อมูลตารางงาน (เช็คสถานะร้าน + คิวของช่าง)
+    const fetchMyTable = useCallback(async () => {
+        try {
+            const res = await fetchWithAuth(`${baseURL}/queue_service/my-work-table`);
+            if (res.ok) {
+                const data = await res.json();
+                setWorkData(data);
+                setError(null);
+            } else {
+                const errData = await res.json();
+                setError(errData.detail || "เกิดข้อผิดพลาดในการโหลดข้อมูล");
+            }
+        } catch (err) {
+            setError("เชื่อมต่อเซิร์ฟเวอร์ล้มเหลว");
+        } finally {
+            setLoading(false);
+        }
+    }, [baseURL, fetchWithAuth]);
 
-    // Modal States
-    const [bookingConfirmModal, setBookingConfirmModal] = useState({ isOpen: false, slot: null });
-    const [bookingSuccessModal, setBookingSuccessModal] = useState({ isOpen: false, code: "" });
-    const [cancelModal, setCancelModal] = useState({ isOpen: false, slot: null });
+    useEffect(() => {
+        fetchMyTable();
+        const timer = setInterval(fetchMyTable, 60000); // Auto-refresh ทุก 1 นาที
+        return () => clearInterval(timer);
+    }, [fetchMyTable]);
 
-    // Actions
-    const handleBookClick = (slot) => {
-        setBookingConfirmModal({ isOpen: true, slot: slot });
+    // 2. ฟังก์ชันจัดการ Action (Walk-in, Check-in, Complete, Cancel)
+    const handleAction = async (qId, actionType, chairId) => {
+        if (actionType === "cancel" && !window.confirm("ยืนยันการยกเลิกคิวนี้?")) return;
+        
+        setActionLoading(true);
+        // ถ้าเป็น cancel เราจะยิงไปที่ endpoint cancel-action ที่เราสร้างไว้ใน backend
+        const endpoint = actionType === "cancel" ? "cancel-action" : actionType;
+        
+        try {
+            const res = await fetchWithAuth(`${baseURL}/queue_service/chairs/${chairId}/queues/${qId}/${endpoint}`, {
+                method: "POST"
+            });
+            if (res.ok) {
+                await fetchMyTable();
+            } else {
+                const err = await res.json();
+                alert(err.detail || "ดำเนินการไม่สำเร็จ");
+            }
+        } catch (err) {
+            alert("ผิดพลาดทางการเชื่อมต่อ");
+        } finally {
+            setActionLoading(false);
+        }
     };
 
-    const confirmBooking = () => {
-        const slot = bookingConfirmModal.slot;
-        setSlots(slots.map(s => s.id === slot.id ? { ...s, status: "walkin" } : s));
-        setBookingConfirmModal({ isOpen: false, slot: null });
-        setBookingSuccessModal({ isOpen: true, code: "XXXX" });
-    };
+    if (loading) return <div className="wt-loader-container">กำลังตรวจสอบข้อมูลร้าน...</div>;
+    if (error) return <div className="wt-loader-container wt-error">⚠️ {error}</div>;
 
-    const handleCancelClick = (slot) => {
-        setCancelModal({ isOpen: true, slot: slot });
-    };
-
-    const confirmCancel = () => {
-        const slot = cancelModal.slot;
-        setSlots(slots.map(s => s.id === slot.id ? { ...s, status: "free", customerName: null, code: null, phone: null } : s));
-        setCancelModal({ isOpen: false, slot: null });
-    };
+    // --- ตรวจสอบวันหยุดร้าน ---
+    if (workData && !workData.is_shop_open) {
+        return (
+            <div className="wt-closed-page">
+                <div className="closed-content">
+                    <div className="closed-icon">📅</div>
+                    <h1>วันนี้ร้านหยุดให้บริการ</h1>
+                    <p>{workData.message || "ขออภัยในความไม่สะดวก"}</p>
+                    <button className="btn-refresh" onClick={() => window.location.reload()}>ลองตรวจสอบอีกครั้ง</button>
+                </div>
+            </div>
+        );
+    }
 
     return (
-        <div className="working-table-page">
-            <div className="top-actions">
-                <button className="back-arrow-btn" onClick={() => navigate(-1)}>
-                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                        <line x1="19" y1="12" x2="5" y2="12"></line>
-                        <polyline points="12 19 5 12 12 5"></polyline>
-                    </svg>
-                </button>
-            </div>
-
-            <div className="header-info-container">
-                <button className="today-btn">วันนี้</button>
-                <div className="chair-barber-box">
-                    <p>เก้าอี้ 1</p>
-                    <p>ช่าง : XXX</p>
-                </div>
-            </div>
-
-            <div className="table-container">
-                <table className="schedule-table">
-                    <thead>
-                        <tr>
-                            <th className="th-time">เวลา</th>
-                            <th className="th-status">สถานะ</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {slots.map((slot) => {
-                            const isFree = slot.status === "free";
-                            const isWalkin = slot.status === "walkin";
-                            const isBooked = slot.status === "booked";
-
-                            return (
-                                <tr key={slot.id} className={isFree ? "row-free" : "row-booked"}>
-                                    <td className="time-cell">{slot.time} น.</td>
-                                    <td className="status-cell-td">
-                                        <div className={`status-cell ${isFree || isWalkin ? 'center-content' : ''}`}>
-                                            {isFree && (
-                                                <button className="btn-book" onClick={() => handleBookClick(slot)}>จองคิว</button>
-                                            )}
-                                            
-                                            {isWalkin && (
-                                                <div className="walk-in-text">ลูกค้า Walk-In</div>
-                                            )}
-
-                                            {isBooked && (
-                                                <>
-                                                    <div className="customer-info">
-                                                        <p>ลูกค้า:{slot.customerName}</p>
-                                                        <p>รหัส: {slot.code}</p>
-                                                        <p>เบอร์โทร: {slot.phone}</p>
-                                                    </div>
-                                                    <button className="btn-cancel" onClick={() => handleCancelClick(slot)}>ยกเลิก</button>
-                                                </>
-                                            )}
-                                        </div>
-                                    </td>
-                                </tr>
-                            );
-                        })}
-                    </tbody>
-                </table>
-            </div>
-
-            {/* Booking Confirm Modal */}
-            {bookingConfirmModal.isOpen && bookingConfirmModal.slot && (
-                <div className="modal-overlay">
-                    <div className="custom-modal">
-                        <h3 className="modal-title">คุณต้องการยืนยันการจองคิวหรือไม่?</h3>
-                        <div className="modal-details">
-                            <p>วันที่: XX XX XXXX</p>
-                            <p>เวลา:{bookingConfirmModal.slot.time.replace('.', '.').replace('-', ' -')}</p>
-                        </div>
-                        <div className="modal-actions-center">
-                            <button className="btn-confirm-cancel" onClick={() => setBookingConfirmModal({ isOpen: false, slot: null })}>ยกเลิก</button>
-                            <button className="btn-confirm-ok" onClick={confirmBooking}>ยืนยัน</button>
-                        </div>
+        <div className="wt-page-container">
+            <header className="wt-top-bar">
+                <div className="barber-identity">
+                    <img src={`${baseURL}/${userData?.profile_img}`} alt="barber" className="barber-pic" />
+                    <div>
+                        <h2>แผงควบคุม: {workData?.chair_name}</h2>
+                        <p>ช่างผู้ดูแล: <strong>{userData?.firstname} {userData?.lastname}</strong></p>
                     </div>
                 </div>
-            )}
+            </header>
 
-            {/* Booking Success Modal */}
-            {bookingSuccessModal.isOpen && (
-                <div className="modal-overlay">
-                    <div className="custom-modal" style={{ textAlign: "center" }}>
-                        <h3 className="modal-title" style={{ marginTop: 0 }}>การจองสำหรับลูกค้า Walk-In เสร็จสิ้น</h3>
-                        
-                        <div className="success-icon-container">
-                            <div className="success-icon">
-                                <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round">
-                                    <polyline points="20 6 9 17 4 12"></polyline>
-                                </svg>
+            <div className="wt-work-grid">
+                {workData?.queues.length === 0 ? (
+                    <div className="no-data-msg">ไม่มีข้อมูลคิวสำหรับวันนี้</div>
+                ) : (
+                    workData.queues.map((q) => {
+                        const meta = STATUS_META[q.status] || STATUS_META.NO_SHOW;
+                        return (
+                            <div key={q.id} className="wt-queue-card" style={{ borderTop: `5px solid ${meta.color}` }}>
+                                <div className="card-header">
+                                    <span className="time-range">{q.start_time} - {q.end_time}</span>
+                                    <span className="status-label" style={{ color: meta.color, backgroundColor: meta.bg }}>
+                                        {meta.label}
+                                    </span>
+                                </div>
+
+                                <div className="card-body">
+                                    <small>ชื่อลูกค้า</small>
+                                    <h3>{q.customer_name}</h3>
+                                </div>
+
+                                <div className="card-footer">
+                                    {/* สถานะ ว่าง */}
+                                    {q.status === "AVAILABLE" && (
+                                        <button className="btn-wt walkin" onClick={() => handleAction(q.id, "walkin", q.chair_id)} disabled={actionLoading}>
+                                            จอง Walk-in
+                                        </button>
+                                    )}
+
+                                    {/* สถานะ จองแล้ว (เพิ่มปุ่มยกเลิก) */}
+                                    {q.status === "BOOKED" && (
+                                        <>
+                                            <button className="btn-wt checkin" onClick={() => handleAction(q.id, "checkin", q.chair_id)} disabled={actionLoading}>
+                                                เช็คอิน
+                                            </button>
+                                            <button className="btn-wt cancel" onClick={() => handleAction(q.id, "cancel", q.chair_id)} disabled={actionLoading}>
+                                                ยกเลิก
+                                            </button>
+                                        </>
+                                    )}
+
+                                    {/* สถานะ กำลังตัด */}
+                                    {q.status === "CHECKIN" && (
+                                        <button className="btn-wt complete" onClick={() => handleAction(q.id, "complete", q.chair_id)} disabled={actionLoading}>
+                                            เสร็จสิ้นบริการ
+                                        </button>
+                                    )}
+
+                                    {/* สถานะ No-show หรือ Complete (ปุ่มสำหรับเปิดคิวใหม่) */}
+                                    {(q.status === "NO_SHOW" || q.status === "COMPLETE") && (
+                                        <button className="btn-wt reset" onClick={() => handleAction(q.id, "cancel", q.chair_id)} disabled={actionLoading}>
+                                            คืนสล็อตว่าง (Reset)
+                                        </button>
+                                    )}
+                                </div>
                             </div>
-                        </div>
-
-                        <div className="modal-details" style={{ marginBottom: "40px" }}>
-                            รหัสยืนยัน: {bookingSuccessModal.code}
-                        </div>
-                        
-                        <button className="btn-done" onClick={() => setBookingSuccessModal({ isOpen: false, code: "" })}>เสร็จสิ้น</button>
-                    </div>
-                </div>
-            )}
-
-            {/* Cancel Confirm Modal */}
-            {cancelModal.isOpen && cancelModal.slot && (
-                <div className="modal-overlay">
-                    <div className="custom-modal">
-                        <button className="close-btn" onClick={() => setCancelModal({ isOpen: false, slot: null })}>
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                                <line x1="18" y1="6" x2="6" y2="18"></line>
-                                <line x1="6" y1="6" x2="18" y2="18"></line>
-                            </svg>
-                        </button>
-
-                        <h3 className="modal-title">คุณต้องการยกเลิกคิวหรือไม่?</h3>
-                        <div className="modal-details">
-                            <p>วันที่: XX XX XXXX</p>
-                            <p>เวลา:{cancelModal.slot.time.replace('.', '.').replace('-', ' -')}</p>
-                        </div>
-                        <div className="modal-actions-center">
-                            <button className="btn-confirm-cancel" onClick={confirmCancel}>ยกเลิก</button>
-                        </div>
-                    </div>
-                </div>
-            )}
+                        );
+                    })
+                )}
+            </div>
         </div>
-    )
+    );
 }

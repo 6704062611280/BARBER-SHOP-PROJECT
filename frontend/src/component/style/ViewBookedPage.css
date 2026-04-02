@@ -1,163 +1,218 @@
-.view-booked-page {
-    padding: 2rem;
-    max-width: 800px;
-    margin: 0 auto;
-    font-family: inherit;
-    min-height: calc(100vh - 200px);
+/* ====== THEME COLORS ====== */
+:root {
+  --primary: #8B5E3C;        /* น้ำตาลหลัก */
+  --secondary: #D2B48C;      /* น้ำตาลอ่อน */
+  --bg: #FDF8F3;             /* พื้นหลังครีม */
+  --card: #FFFFFF;
+  --text: #3E2C23;
+  --subtext: #7A6A5F;
+  --danger: #C94C4C;
 }
 
-.top-actions {
-    display: flex;
-    justify-content: flex-start;
-    margin-bottom: 20px;
+/* ====== GLOBAL ====== */
+.view-booked-container {
+  background: var(--bg);
+  min-height: 100vh;
+  font-family: "Prompt", sans-serif;
+  color: var(--text);
 }
 
-.back-arrow-btn {
-    background: none;
-    border: none;
-    cursor: pointer;
-    padding: 0;
+/* ====== HEADER ====== */
+.booked-header {
+  display: flex;
+  align-items: center;
+  padding: 20px;
+  gap: 15px;
 }
 
-.booked-content {
-    display: flex;
-    justify-content: center;
-    padding-top: 20px;
+.back-circle-btn {
+  background: white;
+  border: none;
+  padding: 10px;
+  border-radius: 50%;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  cursor: pointer;
+  transition: 0.2s;
 }
 
-.empty-state-box, .filled-state-box {
-    background-color: #f7d2be; /* Peach background */
-    border: 5px solid #574238; /* Brown border */
-    border-radius: 12px;
-    padding: 40px 30px;
-    width: 650px;
-    min-height: 400px;
-    box-shadow: 10px 10px 0px 0px rgba(0,0,0,0.15);
-    display: flex;
-    flex-direction: column;
+.back-circle-btn:hover {
+  transform: scale(1.1);
 }
 
-.box-title {
-    text-align: center;
-    font-size: 2rem;
-    margin-bottom: 40px;
-    color: black;
-    font-weight: bold;
+.header-text h1 {
+  margin: 0;
+  font-size: 22px;
 }
 
-.empty-message {
-    flex: 1;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    color: #999;
-    font-size: 1.25rem;
+.header-text p {
+  margin: 0;
+  color: var(--subtext);
 }
 
-.booked-list {
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
+/* ====== GRID ====== */
+.booked-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  padding: 20px;
+  gap: 20px;
 }
 
-.booked-card {
-    background-color: white;
-    border-radius: 12px;
-    padding: 15px 25px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+/* ====== CARD ====== */
+.booking-card {
+  background: var(--card);
+  border-radius: 20px;
+  padding: 20px;
+  box-shadow: 0 10px 25px rgba(139,94,60,0.08);
+  transition: 0.25s ease;
+  border: 1px solid #f0e6dc;
 }
 
-.booked-info {
-    display: flex;
-    flex: 1;
-    justify-content: space-between;
-    padding-right: 30px;
-    font-size: 1.15rem;
+.booking-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 15px 30px rgba(139,94,60,0.15);
 }
 
-.queue-number, .queue-time {
-    color: black;
+/* ====== TOP ====== */
+.card-top {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 15px;
 }
 
-.btn-cancel-queue {
-    background-color: #f14444; /* Light red */
-    color: white;
-    border: none;
-    border-radius: 8px;
-    padding: 8px 30px;
-    font-size: 1.1rem;
-    cursor: pointer;
+.chair-badge {
+  background: var(--secondary);
+  color: var(--text);
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-size: 12px;
 }
 
-.btn-cancel-queue:hover {
-    background-color: #d13030;
+.status-pill {
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  background: #e8f5e9;
+  color: #2e7d32;
 }
 
-/* Modals */
-.modal-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
-    background-color: rgba(0, 0, 0, 0.4);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    z-index: 1000;
+/* ====== INFO ====== */
+.info-item {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 12px;
 }
 
-.cancel-modal {
-    background-color: #fffcf0;
-    border: 5px solid #574238;
-    border-radius: 16px;
-    padding: 40px 40px;
-    width: 480px;
-    position: relative;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+.info-item .icon {
+  color: var(--primary);
 }
 
-.close-btn {
-    position: absolute;
-    top: 20px;
-    right: 20px;
-    background: none;
-    border: none;
-    cursor: pointer;
-    padding: 0;
+.info-item label {
+  font-size: 12px;
+  color: var(--subtext);
 }
 
-.modal-title {
-    font-size: 1.5rem;
-    font-weight: normal;
-    margin-bottom: 30px;
-    color: #000;
-    margin-top: 10px;
+.info-item p {
+  margin: 0;
+  font-weight: 500;
 }
 
-.modal-details {
-    margin-bottom: 40px;
-    font-size: 1.25rem;
-    line-height: 1.8;
+/* ====== BUTTON ====== */
+.cancel-outline-btn {
+  width: 100%;
+  padding: 10px;
+  border-radius: 12px;
+  border: 1px solid var(--danger);
+  background: transparent;
+  color: var(--danger);
+  cursor: pointer;
+  transition: 0.2s;
 }
 
-.modal-actions-center {
-    display: flex;
-    justify-content: center;
+.cancel-outline-btn:hover {
+  background: var(--danger);
+  color: white;
 }
 
-.btn-confirm-cancel {
-    background-color: #f14444;
-    color: white;
-    border: none;
-    border-radius: 10px;
-    padding: 10px 40px;
-    font-size: 1.2rem;
-    cursor: pointer;
+/* ====== EMPTY STATE ====== */
+.empty-state {
+  text-align: center;
+  padding: 60px 20px;
 }
 
-.btn-confirm-cancel:hover {
-    background-color: #d13030;
+.primary-btn {
+  background: var(--primary);
+  color: white;
+  border: none;
+  padding: 12px 25px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.primary-btn:hover {
+  background: #6f472c;
+}
+
+/* ====== MODAL ====== */
+.modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0,0,0,0.4);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.modern-modal {
+  background: white;
+  padding: 25px;
+  border-radius: 20px;
+  width: 300px;
+  text-align: center;
+  animation: fadeIn 0.3s ease;
+}
+
+.modal-icon.warning {
+  width: 50px;
+  height: 50px;
+  background: #ffe0b2;
+  color: #e65100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  margin: auto;
+  font-weight: bold;
+  font-size: 20px;
+}
+
+.modal-btns {
+  display: flex;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.secondary-btn {
+  flex: 1;
+  background: #eee;
+  border: none;
+  padding: 10px;
+  border-radius: 10px;
+}
+
+.danger-btn {
+  flex: 1;
+  background: var(--danger);
+  color: white;
+  border: none;
+  border-radius: 10px;
+}
+
+/* ====== ANIMATION ====== */
+@keyframes fadeIn {
+  from {opacity: 0; transform: scale(0.9);}
+  to {opacity: 1; transform: scale(1);}
 }

@@ -1,198 +1,355 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session, joinedload
-from datetime import date, datetime, timedelta
-from abc import ABC, abstractmethod
-
+from datetime import date, datetime, time
+from typing import List
 from app.database import get_db
 from app.model import (
-    Chair, OpeningDate, QueueSlots, User, 
+    Chair, Barber, QueueSlots, User, OpeningDate,
     BookedStatus, TypeUser, UserRole
 )
-from app.notification_service import (
-    notify_queue_booked, notify_queue_cancelled
-)
-from app.schemas import QueueResponse
 from app.rolebase import require_roles, require_barber
+from app.backtask import get_current_user
 
 router = APIRouter(prefix="/queue_service", tags=["Queue_Service"])
 
 # ==========================================
-# 1. STATE PATTERN
+# 1. STATE MANAGEMENT LOGIC
 # ==========================================
 class QueueStateManager:
-    """จัดการ Logic การเปลี่ยนสถานะของคิว"""
+    """จัดการ Logic การเปลี่ยนสถานะของคิวให้เป็นไปตามกฎของร้าน"""
     ALLOWED_TRANSITIONS = {
-        BookedStatus.AVAILABLE: [BookedStatus.BOOKED],
-        BookedStatus.CANCELLED: [BookedStatus.BOOKED],
-        BookedStatus.NO_SHOW:   [BookedStatus.BOOKED],
-        BookedStatus.BOOKED:    [BookedStatus.CHECKIN, BookedStatus.CANCELLED, BookedStatus.NO_SHOW],
+        BookedStatus.AVAILABLE: [BookedStatus.BOOKED, BookedStatus.CHECKIN, BookedStatus.NO_SHOW],
+        BookedStatus.BOOKED:    [BookedStatus.CHECKIN, BookedStatus.CANCELLED, BookedStatus.AVAILABLE],
         BookedStatus.CHECKIN:   [BookedStatus.COMPLETE],
+        BookedStatus.CANCELLED: [BookedStatus.AVAILABLE, BookedStatus.BOOKED],
+        BookedStatus.NO_SHOW:   [BookedStatus.AVAILABLE]
     }
 
     @staticmethod
     def transition_to(queue: QueueSlots, new_status: BookedStatus):
+        # ตรวจสอบว่าสามารถเปลี่ยนจากสถานะปัจจุบันไปสถานะใหม่ได้หรือไม่
         if new_status not in QueueStateManager.ALLOWED_TRANSITIONS.get(queue.status, []):
-            raise HTTPException(400, f"ไม่สามารถเปลี่ยนสถานะจาก {queue.status.value} เป็น {new_status.value}")
+            return False
         queue.status = new_status
+        return True
 
 # ==========================================
-# 2. TEMPLATE METHOD PATTERN (Cancellation)
-# ==========================================
-class BaseCancelProcess(ABC):
-    """โครงร่างหลักของการยกเลิกคิว"""
-    def execute(self, db: Session, chair_id: int, queue_id: int, user: User):
-        # 1. ตรวจสอบเก้าอี้
-        self._validate_chair(db, chair_id, user)
-        # 2. ดึงข้อมูลคิว
-        queue = self._get_queue(db, queue_id, chair_id)
-        # 3. ตรวจสอบสิทธิ์เฉพาะ (Implement ต่างกัน)
-        self._validate_permission(queue, user)
-        # 4. เปลี่ยนสถานะ (ใช้ State Pattern)
-        QueueStateManager.transition_to(queue, BookedStatus.CANCELLED)
-        # 5. ล้างข้อมูลผู้จอง
-        customer_id_for_notify = queue.customer_id
-        queue.customer_id = None
-        queue.status_user = TypeUser.NONE
-        # 6. ส่งแจ้งเตือน (Implement ต่างกัน)
-        self._send_notification(db, user, customer_id_for_notify, queue.id)
-        
-        return queue
-
-    def _validate_chair(self, db, chair_id, user):
-        chair = db.query(Chair).filter(Chair.id == chair_id).first()
-        if not chair: raise HTTPException(404, "Chair not found")
-        return chair
-
-    def _get_queue(self, db, queue_id, chair_id):
-        queue = db.query(QueueSlots).filter(QueueSlots.id == queue_id).with_for_update().first()
-        if not queue: raise HTTPException(404, "Queue not found")
-        if queue.chair_id != chair_id: raise HTTPException(400, "Queue not in this chair")
-        return queue
-
-    @abstractmethod
-    def _validate_permission(self, queue, user): pass
-
-    @abstractmethod
-    def _send_notification(self, db, user, customer_id, queue_id): pass
-
-class CustomerCancel(BaseCancelProcess):
-    def _validate_permission(self, queue, user):
-        if queue.customer_id != user.id:
-            raise HTTPException(403, "ไม่ใช่คิวของคุณ")
-
-    def _send_notification(self, db, user, customer_id, queue_id):
-        notify_queue_cancelled(db, user.id, queue_id, "ยกเลิกโดยผู้ใช้")
-
-class BarberCancel(BaseCancelProcess):
-    def _validate_chair(self, db, chair_id, user):
-        chair = super()._validate_chair(db, chair_id, user)
-        if chair.barber_id != user.barber.id:
-            raise HTTPException(403, "ไม่ใช่เก้าอี้ที่คุณรับผิดชอบ")
-
-    def _validate_permission(self, queue, user):
-        if queue.status != BookedStatus.BOOKED:
-            raise HTTPException(400, "คิวนี้ไม่ได้ถูกจองไว้ ไม่ต้องยกเลิก")
-
-    def _send_notification(self, db, user, customer_id, queue_id):
-        if customer_id:
-            notify_queue_cancelled(db, customer_id, queue_id, "ยกเลิกโดยพนักงาน")
-
-# ==========================================
-# 3. ROUTERS
+# 2. BARBER WORK TABLE (ดึงตาม Profile ช่าง)
 # ==========================================
 
-def get_queue_or_404(db: Session, queue_id: int):
-    queue = db.query(QueueSlots).filter(QueueSlots.id == queue_id).with_for_update().first()
-    if not queue: raise HTTPException(404, "Queue not found")
-    return queue
 
-@router.get("/chairs")
-def view_chairs(dateshop: date = date.today(), db: Session = Depends(get_db)):
-    opening = db.query(OpeningDate).filter(OpeningDate.date_open == dateshop).first()
-    if not opening or not opening.is_open:
-        raise HTTPException(400, "ร้านปิดหรือไม่มีตารางงานในวันที่เลือก")
-    chairs = db.query(Chair).filter(Chair.barber_id.isnot(None)).all()
-    return {"date": dateshop, "chairs": chairs}
-
-@router.post("/user/{chair_id}/queues/{queue_id}/booked", response_model=QueueResponse)
-def booked_by_customer(chair_id: int, queue_id: int, user: User = Depends(require_roles([UserRole.CUSTOMER])), db: Session = Depends(get_db)):
-    queue = get_queue_or_404(db, queue_id)
-    if queue.status != BookedStatus.AVAILABLE:
-        raise HTTPException(400, "คิวนี้ไม่ว่าง")
-    
-    QueueStateManager.transition_to(queue, BookedStatus.BOOKED)
-    queue.customer_id = user.id
-    queue.status_user = TypeUser.ONLINE
-    
-    notify_queue_booked(db, user.id, queue.id, str(queue.start_time), str(queue.date_working))
-    db.commit()
-    return queue
-
-@router.post("/user/{chair_id}/queues/{queue_id}/cancel")
-def cancel_by_customer(chair_id: int, queue_id: int, user: User = Depends(require_roles([UserRole.CUSTOMER])), db: Session = Depends(get_db)):
-    process = CustomerCancel()
-    queue = process.execute(db, chair_id, queue_id, user)
-    db.commit()
-    return {"message": "ยกเลิกคิวเรียบร้อยแล้ว"}
-
-@router.post("/chairs/{chair_id}/queues/{queue_id}/cancel")
-def cancel_by_barber(chair_id: int, queue_id: int, user: User = Depends(require_barber()), db: Session = Depends(get_db)):
-    process = BarberCancel()
-    process.execute(db, chair_id, queue_id, user)
-    db.commit()
-    return {"message": "พนักงานยกเลิกคิวเรียบร้อยแล้ว"}
-
-@router.post("/chairs/{chair_id}/queues/{queue_id}/checkin")
-def checkin(chair_id: int, queue_id: int, user: User = Depends(require_barber()), db: Session = Depends(get_db)):
-    queue = get_queue_or_404(db, queue_id)
-    QueueStateManager.transition_to(queue, BookedStatus.CHECKIN)
-    db.commit()
-    return {"message": "เช็คอินเรียบร้อย"}
-
-@router.post("/chairs/{chair_id}/queues/{queue_id}/complete")
-def complete(chair_id: int, queue_id: int, user: User = Depends(require_barber()), db: Session = Depends(get_db)):
-    queue = get_queue_or_404(db, queue_id)
-    QueueStateManager.transition_to(queue, BookedStatus.COMPLETE)
-    db.commit()
-    return {"message": "เสร็จสิ้นบริการ"}
-
-@router.post("/open_shop")
-def open_shop(interval_minutes: int = 60, user: User = Depends(require_roles([UserRole.OWNER])), db: Session = Depends(get_db)):
+@router.get("/my-work-table")
+def get_my_work_table(db: Session = Depends(get_db), current_user: User = Depends(require_barber())):
     today = date.today()
+    
+    # --- STEP 1: เช็คว่าวันนี้ร้านเปิดไหม ---
     opening = db.query(OpeningDate).filter(OpeningDate.date_open == today).first()
     if not opening or not opening.is_open:
-        raise HTTPException(400, "ไม่มีการตั้งค่าเวลาเปิดร้านสำหรับวันนี้")
+        return {"is_shop_open": False, "message": "วันนี้เป็นวันหยุดของทางร้าน"}
 
-    chairs = db.query(Chair).filter(Chair.barber_id.isnot(None)).all()
-    if not chairs: raise HTTPException(400, "ไม่มีช่างประจำเก้าอี้")
+    # --- STEP 2: หาเก้าอี้ของช่าง ---
+    chair = db.query(Chair).join(Barber).filter(Barber.user_id == current_user.id).first()
+    if not chair:
+        raise HTTPException(status_code=404, detail="คุณยังไม่ได้รับมอบหมายให้ดูแลเก้าอี้ตัวใด")
 
-    start_dt = datetime.combine(today, opening.open_time)
-    end_dt = datetime.combine(today, opening.close_time)
-    current = start_dt
-    new_slots = []
+    # --- STEP 3: ดึงข้อมูลคิวและคำนวณสถานะอัตโนมัติ ---
+    queues = db.query(QueueSlots).options(joinedload(QueueSlots.customer)).filter(
+        QueueSlots.chair_id == chair.id,
+        QueueSlots.date_working == today
+    ).order_by(QueueSlots.start_time).all()
 
-    while current < end_dt:
-        next_time = current + timedelta(minutes=interval_minutes)
-        for chair in chairs:
-            new_slots.append(QueueSlots(
-                start_time=current.time(), end_time=next_time.time(),
-                chair_id=chair.id, date_working=today,
-                status=BookedStatus.AVAILABLE, status_user=TypeUser.NONE
-            ))
-        current = next_time
+    now = datetime.now()
+    output = []
+    for q in queues:
+        q_start_dt = datetime.combine(q.date_working, q.start_time)
+        q_end_dt = datetime.combine(q.date_working, q.end_time)
+        diff_minutes = (now - q_start_dt).total_seconds() / 60
 
-    db.bulk_save_objects(new_slots)
+        # Auto-update logic (15 mins limit)
+        if q.status == BookedStatus.BOOKED and diff_minutes > 15:
+            q.status = BookedStatus.AVAILABLE
+            q.customer_id = None
+            q.status_user = TypeUser.NONE
+        elif q.status == BookedStatus.AVAILABLE and diff_minutes > 30:
+            q.status = BookedStatus.NO_SHOW
+        elif q.status == BookedStatus.CHECKIN and now > q_end_dt:
+            q.status = BookedStatus.COMPLETE
+
+        output.append({
+            "id": q.id,
+            "chair_id": chair.id,
+            "start_time": q.start_time.strftime("%H:%M"),
+            "end_time": q.end_time.strftime("%H:%M"),
+            "status": q.status.value,
+            "customer_name": "ลูกค้า Walk-in" if q.status_user == TypeUser.WALK_IN else 
+                             (f"{q.customer.firstname}" if q.customer else "ว่าง")
+        })
+    
     db.commit()
-    return {"message": f"เปิดร้านเรียบร้อย สร้างคิวทั้งหมด {len(new_slots)} คิว"}
+    return {
+        "is_shop_open": True,
+        "chair_name": chair.name,
+        "queues": output
+    }
 
-@router.get("/user/my_queue")
-def view_my_queue(user: User = Depends(require_roles([UserRole.CUSTOMER])), db: Session = Depends(get_db)):
-    queues = db.query(QueueSlots).options(joinedload(QueueSlots.chair)).filter(
+# API สำหรับกดยกเลิก (คืนสถานะเป็น AVAILABLE)
+@router.post("/chairs/{chair_id}/queues/{queue_id}/cancel-action")
+def cancel_queue_action(queue_id: int, db: Session = Depends(get_db), barber: User = Depends(require_barber())):
+    queue = db.query(QueueSlots).filter(QueueSlots.id == queue_id).first()
+    if not queue:
+        raise HTTPException(404, "ไม่พบข้อมูลคิว")
+    
+    # ล้างข้อมูลการจองกลับไปเป็นว่าง
+    queue.status = BookedStatus.AVAILABLE
+    queue.customer_id = None
+    queue.status_user = TypeUser.NONE
+    db.commit()
+    return {"detail": "ยกเลิกรายการและคืนสล็อตว่างแล้ว"}
+
+# ==========================================
+# 3. ACTIONS (Walk-in, Check-in, Complete)
+# ==========================================
+
+@router.post("/chairs/{chair_id}/queues/{queue_id}/walkin")
+def action_walkin(queue_id: int, db: Session = Depends(get_db), barber: User = Depends(require_barber())):
+    queue = db.query(QueueSlots).filter(QueueSlots.id == queue_id).first()
+    
+    if not queue or queue.status not in [BookedStatus.AVAILABLE, BookedStatus.CANCELLED]:
+        raise HTTPException(status_code=400, detail="คิวนี้ไม่สามารถทำ Walk-in ได้")
+    
+    # เปลี่ยนสถานะเป็น CHECKIN ทันทีสำหรับ Walk-in
+    queue.status = BookedStatus.CHECKIN
+    queue.status_user = TypeUser.WALK_IN
+    queue.customer_id = None 
+    
+    db.commit()
+    return {"detail": "เริ่มบริการ Walk-in เรียบร้อย"}
+
+@router.post("/chairs/{chair_id}/queues/{queue_id}/checkin")
+def action_checkin(queue_id: int, db: Session = Depends(get_db), barber: User = Depends(require_barber())):
+    queue = db.query(QueueSlots).filter(QueueSlots.id == queue_id).first()
+    
+    if not queue or queue.status != BookedStatus.BOOKED:
+        raise HTTPException(status_code=400, detail="ไม่พบรายการจองที่รอเช็คอิน")
+    
+    queue.status = BookedStatus.CHECKIN
+    db.commit()
+    return {"detail": "เช็คอินลูกค้าเรียบร้อย"}
+
+@router.post("/chairs/{chair_id}/queues/{queue_id}/complete")
+def action_complete(queue_id: int, db: Session = Depends(get_db), barber: User = Depends(require_barber())):
+    queue = db.query(QueueSlots).filter(QueueSlots.id == queue_id).first()
+    
+    if not queue or queue.status != BookedStatus.CHECKIN:
+        raise HTTPException(status_code=400, detail="คิวไม่อยู่ในสถานะที่กำลังให้บริการ")
+    
+    queue.status = BookedStatus.COMPLETE
+    db.commit()
+    return {"detail": "บริการเสร็จสิ้น"}
+
+# ==========================================
+# 4. CUSTOMER ENDPOINTS (จองคิว/ดูคิวตัวเอง)
+# ==========================================
+
+@router.get("/my-bookings")
+def get_my_bookings(user: User = Depends(require_roles([UserRole.CUSTOMER])), db: Session = Depends(get_db)):
+    bookings = db.query(QueueSlots).options(
+        joinedload(QueueSlots.chair).joinedload(Chair.barber).joinedload(Barber.user_data)
+    ).filter(
         QueueSlots.customer_id == user.id,
         QueueSlots.date_working >= date.today()
     ).order_by(QueueSlots.date_working, QueueSlots.start_time).all()
-    
+
     return [{
-        "queue_id": q.id, "chair_name": q.chair.name if q.chair else None,
-        "date": q.date_working, "start_time": q.start_time, "status": q.status.value
-    } for q in queues]
+        "id": b.id,
+        "chair_name": b.chair.name,
+        "barber_name": b.chair.barber.user_data.firstname if b.chair.barber else "ช่างประจำร้าน",
+        "date": b.date_working,
+        "start_time": b.start_time.strftime("%H:%M"),
+        "status": b.status.value
+    } for b in bookings]
+
+
+@router.get("/chairs")
+def get_chairs_for_customer(db: Session = Depends(get_db)):
+    """
+    ดึงรายการเก้าอี้สำหรับลูกค้า โดยใช้เวลาปัจจุบันของ Server 
+    ตรวจสอบวันเปิด/ปิดร้าน และนับจำนวนคิวว่างที่ยังไม่เลยเวลา
+    """
+    # 1. ดึงเวลาและวันที่ปัจจุบันจาก Server
+    now = datetime.now()
+    today_date = now.date()
+    
+    # 2. ตรวจสอบสถานะร้านจาก Table OpeningDate (อิงตามวันที่ของ Server)
+    opening = db.query(OpeningDate).filter(OpeningDate.date_open == today_date).first()
+    
+    # ถ้าไม่มีข้อมูลใน DB สำหรับวันนี้ หรือตั้งค่า is_open เป็น False
+    if not opening or not opening.is_open:
+        return {
+            "shop_status": "closed", 
+            "message": "ขออภัย วันนี้ร้านหยุดให้บริการ",
+            "chairs": []
+        }
+
+    # 3. ดึงเก้าอี้ทั้งหมด พร้อมโหลดข้อมูลช่าง (Barber) มาด้วย (Eager Loading)
+    chairs = db.query(Chair).options(
+        joinedload(Chair.barber).joinedload(Barber.user_data)
+    ).all()
+    
+    output = []
+
+    for c in chairs:
+        # ดึงคิวทั้งหมดของเก้าอี้ตัวนี้ในวันนี้
+        queues = db.query(QueueSlots).filter(
+            QueueSlots.chair_id == c.id,
+            QueueSlots.date_working == today_date
+        ).all()
+
+        # --- LOGIC การนับคิวว่าง (Real-time) ---
+        # นับเฉพาะคิวที่มีสถานะ AVAILABLE และ "เวลาเริ่มคิว" ต้องยังไม่เลยเวลาปัจจุบัน
+        available_count = 0
+        for q in queues:
+            # รวมวันที่และเวลาเริ่มคิวเข้าด้วยกันเพื่อเปรียบเทียบ
+            q_start_dt = datetime.combine(q.date_working, q.start_time)
+            
+            if q.status == BookedStatus.AVAILABLE and q_start_dt > now:
+                available_count += 1
+
+        # --- กำหนดสถานะเก้าอี้สำหรับการแสดงผลบน Frontend ---
+        # ready     = มีช่าง และ มีคิวว่างเหลืออยู่
+        # full      = มีช่าง แต่ คิวเต็มหมดแล้ว หรือเลยเวลาไปหมดแล้ว
+        # not_ready = เก้าอี้ตัวนี้ไม่มีช่างประจำการ
+        
+        status = "not_ready"
+        status_text = "ไม่มีช่างประจำ"
+        allow_booking = False
+
+        if c.barber:
+            if available_count > 0:
+                status = "ready"
+                status_text = "พร้อมให้บริการ"
+                allow_booking = True
+            else:
+                status = "full"
+                status_text = "คิวเต็ม/ปิดรับคิว"
+                allow_booking = False
+
+        output.append({
+            "id": c.id,
+            "name": c.name,
+            "barber_name": c.barber.user_data.firstname if c.barber else None,
+            "status": status,
+            "statusText": status_text,
+            "allowBooking": allow_booking,
+            "available_count": available_count
+        })
+
+    return {
+        "shop_status": "open",
+        "current_server_time": now.strftime("%Y-%m-%d %H:%M:%S"),
+        "chairs": output
+    }
+
+@router.get("/queues")
+def get_queues_for_customer(chair_id: int, db: Session = Depends(get_db)):
+    """
+    ดึงรายการคิวของเก้าอี้ตัวที่ระบุ โดยใช้เวลาปัจจุบันของ Server
+    เพื่อนำมาแสดงผลในหน้าจองคิวของลูกค้า
+    """
+    # 1. ดึงเวลาปัจจุบันของ Server
+    now = datetime.now()
+    today_date = now.date()
+
+    # 2. ตรวจสอบว่าเก้าอี้มีตัวตนอยู่จริงไหม
+    chair = db.query(Chair).filter(Chair.id == chair_id).first()
+    if not chair:
+        raise HTTPException(status_code=404, detail="ไม่พบข้อมูลเก้าอี้")
+
+    # 3. ดึงคิวทั้งหมดของเก้าอี้นี้ในวันนี้ เรียงตามเวลาเริ่ม
+    queues = db.query(QueueSlots).filter(
+        QueueSlots.chair_id == chair_id,
+        QueueSlots.date_working == today_date
+    ).order_by(QueueSlots.start_time).all()
+
+    output = []
+    for q in queues:
+        # รวมวันที่และเวลาเพื่อใช้เปรียบเทียบ
+        q_start_dt = datetime.combine(q.date_working, q.start_time)
+        
+        # คำนวณความต่างของเวลา (นาที)
+        # ถ้า diff > 0 แสดงว่า "เลยเวลาเริ่มคิวมาแล้ว"
+        time_diff = (now - q_start_dt).total_seconds() / 60
+
+        # --- LOGIC การตัดสินสถานะ (เพื่อให้ Frontend แสดงผลตามเงื่อนไข) ---
+        current_status = q.status.value # ค่าเริ่มต้นจาก DB (AVAILABLE, BOOKED, etc.)
+
+        # เงื่อนไข NO_SHOW: 
+        # ถ้าสถานะยังเป็น AVAILABLE หรือ BOOKED แต่เลยเวลาเริ่มมาแล้วเกิน 30 นาที
+        if (q.status == BookedStatus.AVAILABLE or q.status == BookedStatus.BOOKED) and time_diff > 30:
+            current_status = "NO_SHOW"
+
+        # ข้อมูลที่จะส่งกลับไปให้ Frontend
+        output.append({
+            "id": q.id,
+            "start_time": q.start_time.strftime("%H:%M"),
+            "end_time": q.end_time.strftime("%H:%M"),
+            "status": current_status,
+            "customer_id": q.customer_id, # ส่ง id ลูกค้าไปเพื่อให้ Frontend เช็คว่าเป็น "คิวของเรา" หรือไม่
+        })
+
+    return output
+
+@router.post("/user/{chair_id}/queues/{queue_id}/booked")
+def book_queue(chair_id: int, queue_id: int, db: Session = Depends(get_db), current_user = Depends(get_current_user)):
+    """
+    API สำหรับการจองคิว (ต้องผ่านการ Login)
+    """
+    # 1. ตรวจสอบสิทธิ์ (เฉพาะ CUSTOMER)
+    if current_user.rolestatus != "CUSTOMER":
+        raise HTTPException(status_code=403, detail="เฉพาะบัญชีลูกค้าเท่านั้นที่จองได้")
+
+    # 2. ค้นหาคิวที่ต้องการจอง
+    queue = db.query(QueueSlots).filter(
+        QueueSlots.id == queue_id,
+        QueueSlots.chair_id == chair_id
+    ).first()
+
+    if not queue:
+        raise HTTPException(status_code=404, detail="ไม่พบช่วงเวลาที่ต้องการจอง")
+
+    # 3. ตรวจสอบว่าคิวว่างอยู่จริงไหม และยังไม่เลยเวลา No-show
+    now = datetime.now()
+    q_start_dt = datetime.combine(queue.date_working, queue.start_time)
+    time_diff = (now - q_start_dt).total_seconds() / 60
+
+    if queue.status != BookedStatus.AVAILABLE:
+        raise HTTPException(status_code=400, detail="คิวนี้ถูกจองไปแล้ว")
+    
+    if time_diff > 30:
+        raise HTTPException(status_code=400, detail="ไม่สามารถจองได้ เนื่องจากเลยเวลาเริ่มคิวมานานเกินไป")
+
+    # 4. ทำการจอง
+    queue.status = BookedStatus.BOOKED
+    queue.customer_id = current_user.id
+    # (Optional) เก็บเวลาที่ทำการจองจริง
+    # queue.booked_at = now 
+
+    db.commit()
+    db.refresh(queue)
+
+    return {
+        "id": queue.id,
+        "message": "จองคิวสำเร็จ",
+        "start_time": queue.start_time
+    }
+
+def is_customer(current_user = Depends(get_current_user)):
+    """
+    ตรวจสอบว่า User ที่ Login อยู่มี Role เป็น CUSTOMER หรือไม่
+    """
+    if current_user.rolestatus != "CUSTOMER":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="สิทธิ์การเข้าถึงถูกปฏิเสธ: เฉพาะลูกค้าเท่านั้นที่สามารถทำรายการนี้ได้"
+        )
+    return current_user

@@ -93,3 +93,12 @@ def notify_leave_rejected(db: Session, user_id: int, letter_id: int, date_leave:
         message=f"คำขอลาวันที่ {date_leave} ของคุณถูกปฏิเสธ",
         ref_id=letter_id,
     )
+
+def notify_requeste(db: Session, user_id: int, letter_id: int, date_leave: str):
+    _proxy.push(
+        db, user_id,
+        NotificationType.REQUESTE,
+        title="คำขอลา",
+        message=f"ขอลาวันที่ {date_leave} ",
+        ref_id=letter_id,
+    )

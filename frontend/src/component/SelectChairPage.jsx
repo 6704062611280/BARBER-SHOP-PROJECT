@@ -1,78 +1,136 @@
-import { useNavigate } from "react-router-dom"
-import { useState, useRef, useContext } from "react"
-import { DataContext } from "../DataContext"
-import "./style/SelectChairPage.css"
-import chairImg from "./Image/Barber_chair.png"
+import { useNavigate } from "react-router-dom";
+import { useState, useEffect, useContext, useCallback } from "react";
+import { DataContext } from "../DataContext";
+import { FiArrowLeft, FiUser, FiCalendar, FiClock, FiLock } from "react-icons/fi"; 
+import "./style/SelectChairPage.css";
+import chairImg from "./Image/Barber_chair.png";
 
-export default function ChairPage(){
+export default function ChairPage() {
     const navigate = useNavigate();
+    const { baseURL } = useContext(DataContext);
 
-    const [chairs, setChairs] = useState([
-        { id: 1, name: "เก้าอี้ 1", status: "ready", statusText: "พร้อมให้บริการ", allowBooking: true },
-        { id: 2, name: "เก้าอี้ 2", status: "waiting", statusText: "มีคิวรอ", allowBooking: true },
-        { id: 3, name: "เก้าอี้ 3", status: "full", statusText: "คิวเต็มแล้ว", allowBooking: false },
-        { id: 4, name: "เก้าอี้ 4", status: "full", statusText: "คิวเต็มแล้ว", allowBooking: false },
-    ]);
+    const [chairs, setChairs] = useState([]);
+    const [shopData, setShopData] = useState({ status: "loading", message: "" });
+    const [loading, setLoading] = useState(true);
+    const [todayTH, setTodayTH] = useState("");
+
+    useEffect(() => {
+        setTodayTH(new Date().toLocaleDateString("th-TH", {
+            weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
+        }));
+    }, []);
+
+    const fetchChairs = useCallback(async () => {
+        setLoading(true);
+        try {
+            // เรียก API โดยให้ Backend เช็คเวลา Server เอง
+            const res = await fetch(`${baseURL}/queue_service/chairs`, {
+                headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` }
+            });
+
+            const data = await res.json();
+            
+            if (data.shop_status === "closed") {
+                setShopData({ status: "closed", message: data.message });
+            } else {
+                setChairs(data.chairs || []);
+                setShopData({ status: "open", message: "" });
+            }
+        } catch (error) {
+            setShopData({ status: "closed", message: "การเชื่อมต่อเซิร์ฟเวอร์ขัดข้อง" });
+        } finally {
+            setLoading(false);
+        }
+    }, [baseURL]);
+
+    useEffect(() => { fetchChairs(); }, [fetchChairs]);
+
+    if (loading) return (
+        <div className="sc-loader-wrapper">
+            <div className="sc-loader-spinner"></div>
+            <p>กำลังเตรียมข้อมูลเก้าอี้...</p>
+        </div>
+    );
+
+    // หน้าจอเมื่อร้านปิด (เช็คจากเวลา Server และสถานะใน DB)
+    if (shopData.status === "closed") {
+        return (
+            <div className="sc-closed-container">
+                <div className="sc-closed-glass">
+                    <div className="sc-closed-icon-ring">
+                        <FiLock size={40} />
+                    </div>
+                    <h1>ขออภัย ร้านปิดบริการ</h1>
+                    <p>{shopData.message}</p>
+                    <button className="sc-back-home-btn" onClick={() => navigate("/")}>
+                        กลับหน้าหลัก
+                    </button>
+                </div>
+            </div>
+        );
+    }
 
     return (
-        <div className="select-chair-page">
-            <div className="back-nav">
-                <button className="back-btn" onClick={() => navigate(-1)}>
-                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                        <line x1="19" y1="12" x2="5" y2="12"></line>
-                        <polyline points="12 19 5 12 12 5"></polyline>
-                    </svg>
+        <div className="sc-main-layout">
+            <div className="sc-background-blob"></div>
+            
+            <header className="sc-app-bar">
+                <button className="sc-icon-btn" onClick={() => navigate(-1)}>
+                    <FiArrowLeft size={24} />
                 </button>
-            </div>
+                <div className="sc-header-content">
+                    <h1>เลือกเก้าอี้บริการ</h1>
+                    <span><FiCalendar style={{marginRight: '5px'}}/> {todayTH}</span>
+                </div>
+                <div style={{width: '40px'}}></div> {/* Spacer */}
+            </header>
 
-            <div className="chair-board-wrapper">
-                <div className="chair-board">
-                    <h2 className="board-title">
-                        <svg className="scissor-icon" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <circle cx="6" cy="6" r="3"></circle>
-                            <circle cx="6" cy="18" r="3"></circle>
-                            <line x1="20" y1="4" x2="8.12" y2="15.88"></line>
-                            <line x1="14.47" y1="14.48" x2="20" y2="20"></line>
-                            <line x1="8.12" y1="8.12" x2="12" y2="12"></line>
-                        </svg>
-                        <span>ตารางการให้บริการ</span>
-                        <svg className="scissor-icon" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <circle cx="6" cy="6" r="3"></circle>
-                            <circle cx="6" cy="18" r="3"></circle>
-                            <line x1="20" y1="4" x2="8.12" y2="15.88"></line>
-                            <line x1="14.47" y1="14.48" x2="20" y2="20"></line>
-                            <line x1="8.12" y1="8.12" x2="12" y2="12"></line>
-                        </svg>
-                    </h2>
-
-                    <div className="chairs-grid">
-                        {chairs.map(chair => (
-                            <div key={chair.id} className="chair-card">
-                                <div className="chair-image-container">
-                                    <img src={chairImg} alt={chair.name} className="chair-image" />
+            <main className="sc-content">
+                <div className="sc-grid-container">
+                    {chairs.map((chair) => (
+                        <div key={chair.id} className={`sc-item-card ${chair.status}`}>
+                            {/* จำนวนคิวที่ว่าง */}
+                            {chair.status === "ready" && (
+                                <div className="sc-count-tag">
+                                    <FiClock size={12} /> ว่าง {chair.available_count} รอบ
                                 </div>
-                                <div className="chair-info">
-                                    <span className="chair-name">{chair.name}</span>
-                                    <div className={`status-badge status-${chair.status}`}>
-                                        {chair.status === 'ready' && <span className="status-icon ready-icon">✔</span>}
-                                        {chair.status === 'waiting' && <span className="status-icon waiting-icon"></span>}
-                                        {chair.status === 'full' && <span className="status-icon full-icon"></span>}
-                                        <span className="status-text">{chair.statusText}</span>
+                            )}
+
+                            <div className="sc-card-inner">
+                                <div className="sc-image-section">
+                                    <img 
+                                        src={chairImg} 
+                                        alt="barber-chair" 
+                                        className="sc-main-img"
+                                        style={!chair.allowBooking ? { filter: "grayscale(1) opacity(0.3)" } : {}}
+                                    />
+                                </div>
+
+                                <div className="sc-details-section">
+                                    <h2 className="sc-chair-title">{chair.name}</h2>
+                                    <div className="sc-barber-info">
+                                        <FiUser size={14} />
+                                        <span>{chair.barber_name ? `ช่าง ${chair.barber_name}` : "ไม่มีช่างประจำ"}</span>
+                                    </div>
+                                    
+                                    <div className={`sc-status-pill status-${chair.status}`}>
+                                        <span className="sc-pulse-dot"></span>
+                                        {chair.statusText}
                                     </div>
                                 </div>
-                                <div className="card-divider"></div>
+
                                 <button 
-                                    className={`book-btn ${chair.allowBooking ? 'available' : 'unavailable'}`}
+                                    className="sc-action-button"
                                     disabled={!chair.allowBooking}
                                     onClick={() => navigate(`/booking/${chair.id}`)}
                                 >
-                                    {chair.allowBooking ? "จองเลย" : "จองไม่ได้"}
+                                    {chair.allowBooking ? "จองคิวตอนนี้" : "ไม่สามารถจองได้"}
                                 </button>
                             </div>
-                        ))}
-                    </div>
+                        </div>
+                    ))}
                 </div>
-            </div>
+            </main>
         </div>
-    )
+    );
 }

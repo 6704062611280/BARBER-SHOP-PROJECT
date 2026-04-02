@@ -6,13 +6,14 @@ from app.model import (
     User, Barber, QueueSlots, LeaveLetter,
     BookedStatus, UserRole, LeaveStatus, TypeUser,
     PageView, Notification, CustomeIMgWebsite, Description, CategoryImg,
-    Chair
+    Chair,OpeningDate
 )
+from sqlalchemy.orm import joinedload
 from app.rolebase import require_roles
 from app.backtask import get_current_user
 from app.schemas import (
     PageViewCreate, CustomeIMgWebsiteUpdate, CustomeIMgWebsiteResponse,
-    DescriptionUpdate, DescriptionResponse, NotificationResponse
+    DescriptionUpdate, DescriptionResponse, NotificationResponse,NotificationListResponse
 )
 from datetime import date, timedelta, datetime
 from typing import Literal
@@ -172,9 +173,9 @@ os.makedirs(BASE_STATIC_DIR, exist_ok=True)
 
 # ดึงรูปแยกตาม Category เพื่อให้ Frontend ไป Render ลงช่องที่ถูกต้องได้ง่าย
 @router.get("/website/images", response_model=dict[str, list[CustomeIMgWebsiteResponse]])
-def get_website_images(db: Session = Depends(get_db),
-    user: User = Depends(require_roles([UserRole.OWNER]))):
+def get_website_images(db: Session = Depends(get_db)): # ลบ user: User ออก
     images = db.query(CustomeIMgWebsite).all()
+    # ... logic เดิม ...
     
     result = {
         "BANNER": [img for img in images if img.cate == CategoryImg.BANNER],
@@ -260,8 +261,8 @@ def delete_website_image(
 
 
 @router.get("/website/description", response_model=DescriptionResponse)
-def get_description(db: Session = Depends(get_db),
-    user: User = Depends(require_roles([UserRole.OWNER]))):
+def get_description(db: Session = Depends(get_db)): # ลบ user: User ออก
+    # ... logic เดิม ...
     # ดึงอันแรกที่เจอ (เพราะมีแค่อันเดียว) ถ้าไม่มีให้สร้างอันว่างๆ ไว้
     desc = db.query(Description).first()
     if not desc:
@@ -295,8 +296,8 @@ def update_description(
 # PROFILE & FILE UPLOADS
 # ═══════════════════════════════════════════
 
-# แก้ตัวสะกดให้ตรงตามรูป (deafault)
-DEFAULT_AVATAR = "static/profile_images/deafault_profile/profile-icon.png"
+# แก้ตัวสะกดให้ตรงตามรูป (default)
+DEFAULT_AVATAR = "static/profile_images/default_profile/profile-icon.png"
 # โฟลเดอร์สำหรับเก็บรูปที่ user อัปโหลดใหม่
 UPLOAD_DIR = "static/profile_images/user_profile"
 
@@ -349,3 +350,55 @@ def get_notifications(
     return q.order_by(Notification.create_at.desc()).limit(50).all()
 
 # ... (mark_read และ mark_all_read ใช้ logic เดิมได้เลย)
+
+@router.get("/chairs")
+def get_chairs(db: Session = Depends(get_db)):
+    # ดึงเก้าอี้ทั้งหมด พร้อมข้อมูลช่างที่นั่งอยู่ (ถ้ามี)
+    chairs = db.query(Chair).options(joinedload(Chair.barber).joinedload(Barber.user_data)).all()
+    return chairs
+
+@router.get("/notifications", response_model=NotificationListResponse) 
+def get_notifications(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    # ดึงข้อมูลและเรียงลำดับจากใหม่ไปเก่า (desc)
+    notifications = db.query(Notification)\
+        .filter(Notification.user_id == current_user.id)\
+        .order_by(Notification.create_at.desc())\
+        .all()
+    
+    unread_count = db.query(Notification)\
+        .filter(
+            Notification.user_id == current_user.id, 
+            Notification.is_read == False
+        ).count()
+    
+    return {
+        "items": notifications,
+        "unread_count": unread_count
+    }
+
+@router.get("/data_date")
+def data_date(db: Session = Depends(get_db)):
+    # ดึงข้อมูลการตั้งค่าเฉพาะของ "วันนี้"
+    today = date.today()
+    
+    shop_config = db.query(OpeningDate).filter(OpeningDate.date_open == today).first()
+
+    # ถ้าวันนี้ยังไม่มีการตั้งค่าใน DB เลย (เช่น เพิ่งขึ้นวันใหม่)
+    # เราควรส่งค่า Default กลับไปเพื่อให้ Frontend ทำงานต่อได้ไม่พัง
+    if not shop_config:
+        return {
+            "date_open": today.isoformat(),
+            "is_open": False,
+            "open_time": "10:00:00",
+            "close_time": "15:00:00",
+            "message": "no_config_found_using_default"
+        }
+
+    # ถ้ามีข้อมูล ให้ส่งข้อมูลจริงกลับไป
+    return {
+        "id": shop_config.id,
+        "date_open": shop_config.date_open.isoformat(),
+        "is_open": shop_config.is_open,
+        "open_time": shop_config.open_time.strftime("%H:%M:%S"),
+        "close_time": shop_config.close_time.strftime("%H:%M:%S")
+    }

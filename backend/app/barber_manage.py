@@ -7,15 +7,18 @@ from datetime import date
 from app.schemas import LetterResponse,LetterCreate
 from datetime import datetime
 from sqlalchemy.orm import joinedload
-from app.notification_service import notify_leave_approved, notify_leave_rejected
+from app.notification_service import notify_leave_approved, notify_leave_rejected, notify_requeste
 
 router = APIRouter(prefix="/barber_manage",tags=["Barber_Manage"])
 
 @router.get("/barber_view")
-def getBarber(db:Session = Depends(get_db),user: User = Depends(require_roles([UserRole.OWNER]))):
-    barber_table = db.query(Barber).all()
+def getBarber(db: Session = Depends(get_db), user: User = Depends(require_roles([UserRole.OWNER]))):
+    # ใช้ joinedload เพื่อดึงข้อมูลจากตาราง User (user_data) มาพร้อมกัน
+    barber_table = db.query(Barber).options(joinedload(Barber.user_data)).all()
+    
     if not barber_table:
-        raise HTTPException(404,"ไม่พบพนักงาน")
+        raise HTTPException(status_code=404, detail="ไม่พบพนักงาน")
+        
     return barber_table
 
 @router.post("/assign_chair")
@@ -106,28 +109,42 @@ def send_leave_letter(
     user: User = Depends(require_roles([UserRole.EMPLOYEE])),
     db: Session = Depends(get_db)
 ):
-    # 🔍 หา barber จาก user
+    # 1. ค้นหา Barber จาก User ที่ Login อยู่
     barber = db.query(Barber).filter(Barber.user_id == user.id).first()
     if not barber:
         raise HTTPException(status_code=404, detail="Barber not found")
+
+    # 2. เช็กว่าลาซ้ำวันเดิมไหม
     existing = db.query(LeaveLetter).filter(
-    LeaveLetter.barber_id == barber.id,
-    LeaveLetter.date_leave == data.date_leave
-).first()
+        LeaveLetter.barber_id == barber.id,
+        LeaveLetter.date_leave == data.date_leave
+    ).first()
     if existing:
-       raise HTTPException(400, "Already requested for this date")
-    # 📝 สร้าง Leave Letter
+        raise HTTPException(400, "Already requested for this date")
+
+    # 3. สร้างจดหมายลาใหม่
     new_letter = LeaveLetter(
         barber_id=barber.id,
         report=data.report,
         date_leave=data.date_leave,
         status=LeaveStatus.PENDING
     )
-
     db.add(new_letter)
-    db.commit()
-    db.refresh(new_letter)
+    db.flush() # เพื่อเอา ID ของ new_letter มาใช้แจ้งเตือน
 
+    # 🔔 4. ส่งการแจ้งเตือนไปยังเจ้าของร้าน (Owner)
+    # หมายเหตุ: คุณต้องหา user_id ของคนที่เป็น OWNER 
+    owner = db.query(User).filter(User.rolestatus == "OWNER").first()
+    if owner:
+        notify_requeste(
+            db=db, 
+            user_id=owner.id, # ส่งให้เจ้าของร้าน
+            letter_id=new_letter.id, 
+            date_leave=data.date_leave
+        )
+
+    db.commit() # บันทึกทั้งจดหมายลาและการแจ้งเตือนพร้อมกัน
+    db.refresh(new_letter)
     return new_letter
 
 @router.get("/leave_letter", response_model=list[LetterResponse])
@@ -250,3 +267,19 @@ def get_all_users(
         }
         for u in users
     ]
+
+@router.post("/update_leave_status/{letter_id}")
+def update_status(letter_id: int, status: LeaveStatus, db: Session = Depends(get_db)):
+    letter = db.query(LeaveLetter).filter(LeaveLetter.id == letter_id).first()
+    if not letter: raise HTTPException(404)
+    
+    letter.status = status
+    
+    # 🔔 เรียกใช้ Proxy ส่งแจ้งเตือนกลับไปหาพนักงาน
+    if status == LeaveStatus.APPROVED:
+        notify_leave_approved(db, letter.barber.user_id, letter.id, str(letter.date_leave))
+    elif status == LeaveStatus.REJECTED:
+        notify_leave_rejected(db, letter.barber.user_id, letter.id, str(letter.date_leave))
+        
+    db.commit()
+    return {"message": "Success"}

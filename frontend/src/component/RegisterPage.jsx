@@ -1,12 +1,11 @@
 import { useNavigate } from "react-router-dom"
-import { useState, useRef, useContext, useEffect } from "react"
+import { useState, useContext, useEffect } from "react"
 import { DataContext } from "../DataContext"
 import "./style/RegisterPage.css"
 
-
-
 export default function RegisterPage() {
     const navigate = useNavigate();
+    const { baseURL } = useContext(DataContext);
 
     const [isOtpPopup, setIsOtpPopup] = useState(false);
     const [formData, setFormData] = useState({
@@ -20,6 +19,7 @@ export default function RegisterPage() {
     const [showToast, setShowToast] = useState(false);
     const [shake, setShake] = useState(false);
 
+    // ⏱ timer
     useEffect(() => {
         let interval;
         if (isOtpPopup && timer > 0) {
@@ -38,36 +38,97 @@ export default function RegisterPage() {
         setFormData({ ...formData, [e.target.name]: e.target.value });
     };
 
-    const handleRegisterSubmit = (e) => {
+    // 🔥 สมัคร
+    const handleRegisterSubmit = async (e) => {
         e.preventDefault();
+
+        // ✅ password length
+        if (formData.password.length < 8) {
+            setError("❌ รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร");
+            setShake(true);
+            setTimeout(() => setShake(false), 500);
+            return;
+        }
+
+        // ✅ password match
         if (formData.password !== formData.passcheck) {
             setError("❌ รหัสผ่านไม่ตรงกัน กรุณาตรวจสอบอีกครั้ง");
             setShake(true);
             setTimeout(() => setShake(false), 500);
             return;
         }
-        setError("");
-        setTimer(300);
-        setIsOtpPopup(true);
+
+        try {
+            const res = await fetch(`${baseURL}/auth/pre_register`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify(formData)
+            });
+
+            if (!res.ok) throw new Error();
+
+            setError("");
+            setTimer(300);
+            setIsOtpPopup(true);
+
+        } catch {
+            setError("❌ สมัครไม่สำเร็จ (อีเมลอาจซ้ำ)");
+        }
     };
 
-    const handleVerifyOtp = () => {
-        if (otp !== "123456") {
+    // 🔥 OTP verify
+    const handleVerifyOtp = async () => {
+        try {
+            // 1️⃣ verify OTP
+            const res = await fetch(`${baseURL}/auth/verify_OTP`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    email: formData.email,
+                    otp: otp,
+                    purpose: "REGISTER"
+                })
+            });
+
+            if (!res.ok) throw new Error();
+
+            // 2️⃣ 🔥 REGISTER จริง
+            const registerRes = await fetch(`${baseURL}/auth/register`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    email: formData.email,
+                    otp: otp
+                })
+            });
+
+            if (!registerRes.ok) throw new Error();
+
+            alert("สมัครสมาชิกสำเร็จ 🎉");
+            navigate("/login");
+
+        } catch {
             setShowToast(true);
             setShake(true);
+
             setTimeout(() => {
                 setShowToast(false);
                 setShake(false);
             }, 3000);
-            return;
         }
-        alert("สมัครสมาชิกสำเร็จ 🎉");
-        navigate("/login");
     };
 
     return (
         <div className="register-main-layout">
+
             <div className={`register-card-container ${shake && !isOtpPopup ? "shake" : ""}`}>
+
                 <div className="register-header-section">
                     <h2 className="register-main-title">สร้างบัญชีผู้ใช้</h2>
                 </div>
@@ -75,65 +136,92 @@ export default function RegisterPage() {
                 {error && <div className="error-alert-box">{error}</div>}
 
                 <form onSubmit={handleRegisterSubmit} className="register-form-body">
+
                     <div className="input-row-flex">
                         <div className="input-field-group">
                             <label>ชื่อ</label>
-                            <input name="firstname" placeholder="ชื่อจริง" onChange={handleChange} required />
+                            <input name="firstname" onChange={handleChange} required />
                         </div>
                         <div className="input-field-group">
                             <label>นามสกุล</label>
-                            <input name="lastname" placeholder="นามสกุล" onChange={handleChange} required />
+                            <input name="lastname" onChange={handleChange} required />
                         </div>
                     </div>
 
                     <div className="input-field-group">
                         <label>ชื่อบัญชีผู้ใช้</label>
-                        <input name="username" placeholder="ใส่ชื่อบัญชีผู้ใช้" onChange={handleChange} required />
+                        <input name="username" onChange={handleChange} required />
                     </div>
 
                     <div className="input-field-group">
                         <label>หมายเลขโทรศัพท์</label>
-                        <input name="phone" placeholder="0xx-xxx-xxxx" onChange={handleChange} required />
+                        <input name="phone" onChange={handleChange} required />
                     </div>
 
                     <div className="input-field-group">
                         <label>อีเมล</label>
-                        <input name="email" type="email" placeholder="ใส่ชื่ออีเมล" onChange={handleChange} required />
+                        <input type="email" name="email" onChange={handleChange} required />
                     </div>
 
                     <div className="input-field-group">
                         <label>รหัสผ่าน</label>
-                        <input type="password" name="password" placeholder="ใส่รหัสผ่าน" onChange={handleChange} required />
+                        <input
+                            type="password"
+                            name="password"
+                            minLength="8"
+                            className={formData.password.length > 0 && formData.password.length < 8 ? "input-error" : ""}
+                            placeholder="อย่างน้อย 8 ตัว"
+                            onChange={handleChange}
+                            required
+                        />
+                        {formData.password.length > 0 && formData.password.length < 8 && (
+                            <small className="input-helper">ต้องมีอย่างน้อย 8 ตัวอักษร</small>
+                        )}
                     </div>
 
                     <div className="input-field-group">
-                        <label>ยืนยันรหัสผ่านอีกครั้ง</label>
-                        <input type="password" name="passcheck" placeholder="ยืนยันรหัสผ่าน" onChange={handleChange} required />
+                        <label>ยืนยันรหัสผ่าน</label>
+                        <input
+                            type="password"
+                            name="passcheck"
+                            className={formData.passcheck && formData.passcheck !== formData.password ? "input-error" : ""}
+                            onChange={handleChange}
+                            required
+                        />
+                        {formData.passcheck && formData.passcheck !== formData.password && (
+                            <small className="input-helper">รหัสผ่านไม่ตรงกัน</small>
+                        )}
                     </div>
 
-
-                    {/* ส่วนล่างของฟอร์มสมัครสมาชิก */}
                     <div className="form-footer-action">
                         <div className="center-button-wrapper">
-                            <button type="submit" className="barber-btn-orange">สร้างบัญชีผู้ใช้</button>
+                            <button type="submit" className="barber-btn-orange">
+                                สร้างบัญชีผู้ใช้
+                            </button>
                         </div>
 
-                        {/* เว้นระยะห่างและเพิ่มฟังก์ชันลิงก์ไปหน้า Login */}
                         <p className="login-nav-text">
-                            มีบัญชีแล้ว? <span className="login-link-span" onClick={() => navigate("/login")}>เข้าสู่ระบบ</span>
+                            มีบัญชีแล้ว?{" "}
+                            <span onClick={() => navigate("/login")} className="login-link-span">
+                                เข้าสู่ระบบ
+                            </span>
                         </p>
                     </div>
+
                 </form>
             </div>
 
-            {/* OTP Popup Overlay มืดสนิท ไม่เบลอ */}
+            {/* OTP */}
             {isOtpPopup && (
                 <div className="otp-overlay-dark">
                     <div className={`otp-modal-box ${shake ? "shake" : ""}`}>
                         <h2 className="otp-modal-title">ยืนยันรหัส OTP</h2>
+
                         <p className="otp-modal-desc">
-                            รหัสถูกส่งไปที่ <b>{formData.email}</b><br />
-                            จะหมดอายุภายใน <span className={`otp-timer ${timer < 60 ? "urgent" : ""}`}>{formatTime()}</span> นาที
+                            ส่งไปที่ <b>{formData.email}</b><br />
+                            <span className={`otp-timer ${timer < 60 ? "urgent" : ""}`}>
+                                {formatTime()}
+                            </span>
                         </p>
 
                         <input
@@ -141,31 +229,25 @@ export default function RegisterPage() {
                             maxLength="6"
                             value={otp}
                             onChange={(e) => setOtp(e.target.value)}
-                            placeholder="- - - - - -"
                         />
 
                         <div className="center-button-wrapper">
-                            <button className="barber-btn-orange" onClick={handleVerifyOtp} disabled={timer === 0}>
+                            <button
+                                className="barber-btn-orange"
+                                onClick={handleVerifyOtp}
+                                disabled={timer === 0}
+                            >
                                 ยืนยันรหัส
-                            </button>
-                        </div>
-
-                        <div className="otp-modal-footer">
-                            <button className="otp-link" onClick={() => setIsOtpPopup(false)}>แก้ไขข้อมูล</button>
-                            <button className="otp-link" disabled={timer > 0} onClick={() => setTimer(300)}>
-                                ส่งรหัสอีกครั้ง {timer > 0 && `(${formatTime()})`}
                             </button>
                         </div>
                     </div>
                 </div>
             )}
 
-            {/* Toast แจ้งเตือนด้านบนสุด */}
             {showToast && (
                 <div className="top-toast-notification">
                     <div className="toast-card">
-                        <span className="toast-icon">⚠️</span>
-                        <span>รหัส OTP ไม่ถูกต้อง กรุณาลองใหม่</span>
+                        ⚠️ OTP ไม่ถูกต้อง
                     </div>
                 </div>
             )}

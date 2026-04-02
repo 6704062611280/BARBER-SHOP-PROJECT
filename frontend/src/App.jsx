@@ -17,6 +17,7 @@ import EditProfilePage from "./component/EditProfilePage"
 import LeaveLetter from "./component/LeaveLetterPage"
 import LeaveDetailPage from "./component/LeaveDetailPage"
 import ChangePasswordPage from "./component/ChangePasswordPage"
+import ProfilePage from "./component/ProfilePage"
 import './App.css'
 import Layout from "./component/Layout"
 
@@ -40,7 +41,8 @@ function App() {
         <Route path="/change-password" element={<ChangePasswordPage />} />
         <Route path="/booking/:chairId" element={<QueuesPage />} />
         <Route path="/notification" element={<Notification />} />
-        <Route path="/leave-detail" element={<LeaveDetailPage />} />
+        <Route path="/leave-detail/:id" element={<LeaveDetailPage />} />
+        <Route path="/profile" element={<ProfilePage/>}  />
 
         {/* --- Role: CUSTOMER เท่านั้น --- */}
         <Route element={<RequireRole allowRoles={["CUSTOMER"]} />}>
