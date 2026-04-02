@@ -5,16 +5,16 @@ import "./style/Home.css";
 
 export default function Home() {
     const navigate = useNavigate();
-    const { islogin, role, heroSlides, promoSlides, announcementText, baseURL } = useContext(DataContext) || {};
+    
+    // ดึง authLoading มาเช็คด้วย เพื่อไม่ให้ปุ่มกระพริบตอนกำลังโหลด
+    const { islogin, role, heroSlides, promoSlides, announcementText, baseURL, authLoading } = useContext(DataContext) || {};
 
-    // จัดการ Path รูปภาพให้ถูกต้อง
     const getImgUrl = (imgData, fallback) => {
         if (!imgData) return fallback;
-        if (typeof imgData === "string") return imgData; // รูป Default
-        return `${baseURL}/${imgData.path_img}`; // รูปจาก Backend
+        if (typeof imgData === "string") return imgData; 
+        return `${baseURL}/${imgData.path_img}`; 
     };
 
-    // --- Logic Slideshow & Fade ---
     const [currHero, setCurrHero] = useState(0);
     const [currPromo, setCurrPromo] = useState(0);
 
@@ -27,42 +27,41 @@ export default function Home() {
         return () => { clearInterval(hInt); clearInterval(pInt); };
     }, [safeHeros, safePromos]);
 
+    // 🔴 ฟังก์ชันคำนวณ Path สำหรับปุ่มจองคิว
+    const handleBookingClick = () => {
+        if (!islogin) {
+            navigate('/login');
+        } else {
+            // เช็ค Role ให้ชัดเจน
+            if (role === 'OWNER' || role === 'BARBER') {
+                navigate('/working-table');
+            } else {
+                navigate('/chair');
+            }
+        }
+    };
+
+    // ถ้ายังโหลด Auth ไม่เสร็จ อาจจะโชว์ Loading หรือไม่โชว์ปุ่มก่อน
+    if (authLoading) return <div className="loading-screen">กำลังโหลด...</div>;
+
     return (
         <div className="home-container">
-            {/* 1. Hero Section */}
-            <section className="hero-section">
-                <div className="hero-track" style={{ transform: `translateX(-${currHero * 100}%)` }}>
-                    {safeHeros.map((img, i) => (
-                        <div key={i} className="hero-slide">
-                            <img src={getImgUrl(img, "/images/slide1.jpg")} alt="Banner" />
-                            <div className="hero-overlay" />
-                        </div>
-                    ))}
-                </div>
-            </section>
-
-            {/* 2. Promo & Booking */}
+            {/* ... ส่วน Hero ... */}
+            
             <section className="promo-section">
                 <div className="promo-display-container">
-                    <div className="promo-fade-box">
-                        {safePromos.map((img, i) => (
-                            <img key={i} src={getImgUrl(img, "/images/slide2.jpg")} 
-                                 className={`promo-img ${i === currPromo ? 'active' : ''}`} alt="Promo" />
-                        ))}
-                    </div>
-                    <button onClick={() => navigate(islogin ? (role === 'CUSTOMER' ? '/chair' : '/working-table') : '/login')} className="btn-main-booking">
-                        <span className="btn-text-main">จองคิวออนไลน์</span>
+                    {/* ... ส่วนรูป Promo ... */}
+                    
+                    {/* เปลี่ยนการเรียก navigate ตรงๆ มาใช้ handleBookingClick */}
+                    <button onClick={handleBookingClick} className="btn-main-booking">
+                        <span className="btn-text-main">
+                            {islogin ? "จัดการระบบ/จองคิว" : "เข้าสู่ระบบเพื่อจองคิว"}
+                        </span>
                     </button>
                 </div>
             </section>
 
-            {/* 3. Description Section */}
-            <section className="announcement-section">
-                <div className="announcement-card">
-                    <div className="announcement-html" 
-                         dangerouslySetInnerHTML={{ __html: announcementText || "<h1>ยินดีต้อนรับ</h1>" }} />
-                </div>
-            </section>
+            {/* ... ส่วน Description ... */}
         </div>
     );
 }

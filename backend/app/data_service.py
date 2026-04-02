@@ -173,9 +173,9 @@ os.makedirs(BASE_STATIC_DIR, exist_ok=True)
 
 # ดึงรูปแยกตาม Category เพื่อให้ Frontend ไป Render ลงช่องที่ถูกต้องได้ง่าย
 @router.get("/website/images", response_model=dict[str, list[CustomeIMgWebsiteResponse]])
-def get_website_images(db: Session = Depends(get_db),
-    user: User = Depends(require_roles([UserRole.OWNER]))):
+def get_website_images(db: Session = Depends(get_db)): # ลบ user: User ออก
     images = db.query(CustomeIMgWebsite).all()
+    # ... logic เดิม ...
     
     result = {
         "BANNER": [img for img in images if img.cate == CategoryImg.BANNER],
@@ -261,8 +261,8 @@ def delete_website_image(
 
 
 @router.get("/website/description", response_model=DescriptionResponse)
-def get_description(db: Session = Depends(get_db),
-    user: User = Depends(require_roles([UserRole.OWNER]))):
+def get_description(db: Session = Depends(get_db)): # ลบ user: User ออก
+    # ... logic เดิม ...
     # ดึงอันแรกที่เจอ (เพราะมีแค่อันเดียว) ถ้าไม่มีให้สร้างอันว่างๆ ไว้
     desc = db.query(Description).first()
     if not desc:

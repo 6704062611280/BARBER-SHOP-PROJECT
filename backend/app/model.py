@@ -98,7 +98,11 @@ class Barber(Base):
     unique=True
 )
     user_data:Mapped["User"] = relationship("User", back_populates="barber")
-    leave_letter:Mapped[list["LeaveLetter"]] = relationship("LeaveLetter", back_populates="barber")
+    leave_letter:Mapped[list["LeaveLetter"]] = relationship(
+        "LeaveLetter", 
+        back_populates="barber", 
+        cascade="all, delete-orphan" 
+    )
 
 
 

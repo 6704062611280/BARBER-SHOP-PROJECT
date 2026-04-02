@@ -312,42 +312,58 @@ def change_password(
 
 
 # =========================
-# REFRESH
+# REFRESH (เวอร์ชันปรับปรุง)
 # =========================
 @router.post("/refresh")
 def refresh_token(refresh_token: str, db: Session = Depends(get_db)):
+    # 1. ค้นหา Token
     db_token = db.query(RefreshToken).filter(
-        RefreshToken.jti == refresh_token,
-        RefreshToken.is_revoked == False
+        RefreshToken.jti == refresh_token
     ).first()
 
-    if not db_token:
-        raise HTTPException(status_code=401, detail="Invalid refresh token")
+    # 2. ตรวจสอบความถูกต้อง
+    if not db_token or db_token.is_revoked:
+        raise HTTPException(status_code=401, detail="Refresh token is invalid or revoked")
 
+    # 3. ตรวจสอบวันหมดอายุ
     if to_utc(db_token.expires_at) < datetime.now(timezone.utc):
-        raise HTTPException(status_code=401, detail="Token expired")
+        raise HTTPException(status_code=401, detail="Refresh token expired")
 
-    db_token.is_revoked = True
-
-    new_refresh = create_refresh_token()
-
-    new_db_token = RefreshToken(
-        user_id=db_token.user_id,
-        jti=new_refresh,
-        token_hash=hash_password(new_refresh),
-        expires_at=datetime.now(timezone.utc) + timedelta(days=7)
-    )
-
-    db.add(new_db_token)
-    db.commit()
-
+    # --- ส่วนที่แนะนำให้ปรับปรุง ---
+    # แทนที่จะลบทันที เราอาจจะปล่อยไว้ก่อน หรือลบตัวเก่าทิ้งไปเลย
+    # เพื่อความปลอดภัยสูงสุด: ลบตัวเก่าทิ้ง (หรือ Revoke)
+    db_token.is_revoked = True 
+    
+    # 4. สร้าง Access Token ใหม่
     user = db.query(User).filter(User.id == db_token.user_id).first()
+    if user:
+        user.last_activity = datetime.now(timezone.utc) # รีเซ็ตเวลา Inactivity เมื่อ Refresh สำเร็จ
+        db.commit()
+    if not user:
+        raise HTTPException(status_code=401, detail="User not found")
 
     new_access = create_access_token({
         "sub": user.username,
         "user_id": user.id,
         "role": user.rolestatus.value
     })
+
+    # 5. สร้าง Refresh Token ใหม่ (Rotate Token)
+    new_refresh = create_refresh_token()
+    new_db_token = RefreshToken(
+        user_id=db_token.user_id,
+        jti=new_refresh,
+        token_hash=hash_password(new_refresh), # เก็บ hash ไว้ตรวจสอบ
+        expires_at=datetime.now(timezone.utc) + timedelta(days=7)
+    )
+
+    db.add(new_db_token)
+    
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Database error during refresh")
 
     return {
         "access_token": new_access,
@@ -397,3 +413,15 @@ def resetpass (data:ResetPassworld,db: Session = Depends(get_db)):
     if preuser:
         db.delete(preuser)
     db.commit()
+
+@router.post("/verify_password")
+def verify_owner_password(
+    data: PasswordVerify,  # รับเป็น Model เพื่อให้อ่านจาก Body
+    current_user: User = Depends(get_current_user)
+):
+
+    # ใช้ data.password แทน password
+    if not verify_password(data.password, current_user.password_hash):
+        raise HTTPException(status_code=401, detail="รหัสผ่านไม่ถูกต้อง")
+
+    return {"message": "password correct"}

@@ -14,7 +14,7 @@ export default function ManageUser() {
   const [chairs, setChairs] = useState([]);       // เก้าอี้ในร้าน
   const [loading, setLoading] = useState(false);
 
-  // Helper สำหรับส่ง Header
+  // Helper สำหรับส่ง Header (ดึง Token ล่าสุดเสมอ)
   const getAuthHeader = useCallback(() => ({
     "Authorization": `Bearer ${localStorage.getItem("token")}`,
     "Content-Type": "application/json"
@@ -43,7 +43,7 @@ export default function ManageUser() {
       setChairs(Array.isArray(chairData) ? chairData : []);
       setLeaveRequests(Array.isArray(leaves) ? leaves : []);
 
-      // 🔴 หลังจากดึงข้อมูลใบลามาแล้ว ให้สะกิด Layout อัปเดตจุดแดง (เผื่อมีใบลาใหม่เข้ามา)
+      // สะกิด Layout อัปเดตจุดแดงแจ้งเตือน
       window.dispatchEvent(new Event("refreshBadges"));
 
     } catch (error) {
@@ -103,6 +103,8 @@ export default function ManageUser() {
       });
       if (res.ok) {
         alert("เพิ่มพนักงานใหม่สำเร็จ");
+        // ย้ายไปหน้าพนักงานทันทีเพื่อให้เห็นผล
+        setActiveTab("staff");
         fetchData();
       }
     } catch (err) {
@@ -118,14 +120,26 @@ export default function ManageUser() {
         method: "POST",
         headers: getAuthHeader()
       });
+
       if (res.ok) {
         alert("ถอนสิทธิ์สำเร็จ");
+        
+        /** * 🔥 แก้ปัญหาข้อมูลค้าง: 
+         * กรองรายชื่อพนักงานออกทันทีใน State (ไม่ต้องรอ Fetch ใหม่)
+         * เพื่อให้ UI อัปเดตหายไปจากหน้าจอทันที
+         */
+        setStaff(prevStaff => prevStaff.filter(s => s.id !== barberId));
+
+        // ดึงข้อมูลใหม่จาก Server อีกครั้งเพื่อความชัวร์ (Sync ข้อมูลฝั่งลูกค้าด้วย)
         fetchData();
-        // 🔴 สะกิด Layout เผื่อพนักงานคนนี้เคยมีใบลาค้างอยู่ จุดแดงจะได้หายไป
+        
         window.dispatchEvent(new Event("refreshBadges"));
+      } else {
+        const err = await res.json();
+        alert(err.detail || "เกิดข้อผิดพลาด");
       }
     } catch (err) {
-      alert("เกิดข้อผิดพลาด");
+      alert("เกิดข้อผิดพลาดในการเชื่อมต่อ");
     }
   };
 
@@ -136,11 +150,14 @@ export default function ManageUser() {
 
         {/* --- Navigation Tabs --- */}
         <div className="custom-tabs">
-          <button className={activeTab === "staff" ? "active" : ""} onClick={() => setActiveTab("staff")}>พนักงาน</button>
-          <button className={activeTab === "all" ? "active" : ""} onClick={() => setActiveTab("all")}>ลูกค้า</button>
+          <button className={activeTab === "staff" ? "active" : ""} onClick={() => setActiveTab("staff")}>
+            พนักงาน ({staff.length})
+          </button>
+          <button className={activeTab === "all" ? "active" : ""} onClick={() => setActiveTab("all")}>
+            ลูกค้า ({users.length})
+          </button>
           <button className={activeTab === "leave" ? "active" : ""} onClick={() => setActiveTab("leave")}>
             จดหมายลา 
-            {/* 🔴 จุดแดงใน Tab เพื่อบอกว่ามีใบลาที่ยังไม่ได้อนุมัติ */}
             {leaveRequests.filter(l => l.status === 'PENDING').length > 0 && <span className="tab-badge">!</span>}
           </button>
         </div>
@@ -160,7 +177,7 @@ export default function ManageUser() {
                     </tr>
                   </thead>
                   <tbody>
-                    {staff.map((s, index) => {
+                    {staff.length > 0 ? staff.map((s, index) => {
                       const isOwner = s.user_data?.rolestatus === "OWNER";
                       const myChair = chairs.find(c => c.barber_id === s.id);
                       const todayStr = new Date().toLocaleDateString('en-CA');
@@ -201,7 +218,7 @@ export default function ManageUser() {
                           </td>
                         </tr>
                       );
-                    })}
+                    }) : <tr><td colSpan="4" className="no-data">ไม่พบข้อมูลพนักงาน</td></tr>}
                   </tbody>
                 </table>
               )}
