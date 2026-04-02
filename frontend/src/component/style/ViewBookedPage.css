@@ -1,163 +1,111 @@
 .view-booked-page {
-    padding: 2rem;
-    max-width: 800px;
-    margin: 0 auto;
-    font-family: inherit;
-    min-height: calc(100vh - 200px);
+    background-color: #f8f9fa;
+    min-height: 100vh;
+    padding: 20px;
+    font-family: 'Kanit', sans-serif;
 }
 
 .top-actions {
     display: flex;
-    justify-content: flex-start;
-    margin-bottom: 20px;
-}
-
-.back-arrow-btn {
-    background: none;
-    border: none;
-    cursor: pointer;
-    padding: 0;
-}
-
-.booked-content {
-    display: flex;
-    justify-content: center;
-    padding-top: 20px;
-}
-
-.empty-state-box, .filled-state-box {
-    background-color: #f7d2be; /* Peach background */
-    border: 5px solid #574238; /* Brown border */
-    border-radius: 12px;
-    padding: 40px 30px;
-    width: 650px;
-    min-height: 400px;
-    box-shadow: 10px 10px 0px 0px rgba(0,0,0,0.15);
-    display: flex;
-    flex-direction: column;
-}
-
-.box-title {
-    text-align: center;
-    font-size: 2rem;
-    margin-bottom: 40px;
-    color: black;
-    font-weight: bold;
-}
-
-.empty-message {
-    flex: 1;
-    display: flex;
-    justify-content: center;
     align-items: center;
-    color: #999;
-    font-size: 1.25rem;
+    gap: 15px;
+    margin-bottom: 25px;
 }
 
-.booked-list {
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
+.page-main-title {
+    font-size: 1.4rem;
+    margin: 0;
+    color: #2d3436;
 }
 
 .booked-card {
-    background-color: white;
-    border-radius: 12px;
-    padding: 15px 25px;
+    background: white;
+    border-radius: 20px;
+    padding: 20px;
+    margin-bottom: 15px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+    border: 1px solid #f1f1f1;
+}
+
+.card-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    margin-bottom: 15px;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 10px;
+}
+
+.chair-label {
+    font-weight: 600;
+    color: #8B6020;
+    font-size: 1.1rem;
+}
+
+.status-tag {
+    font-size: 0.75rem;
+    padding: 4px 12px;
+    border-radius: 50px;
+    background: #e3fcf7;
+    color: #1abc9c;
 }
 
 .booked-info {
-    display: flex;
-    flex: 1;
-    justify-content: space-between;
-    padding-right: 30px;
-    font-size: 1.15rem;
+    margin-bottom: 20px;
 }
 
-.queue-number, .queue-time {
-    color: black;
+.info-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 8px;
+    font-size: 0.95rem;
 }
+
+.info-row .label { color: #888; }
+.info-row .value { color: #2d3436; font-weight: 500; }
 
 .btn-cancel-queue {
-    background-color: #f14444; /* Light red */
-    color: white;
-    border: none;
-    border-radius: 8px;
-    padding: 8px 30px;
-    font-size: 1.1rem;
+    width: 100%;
+    padding: 12px;
+    border-radius: 12px;
+    border: 1px solid #ff7675;
+    background: transparent;
+    color: #ff7675;
+    font-weight: 500;
     cursor: pointer;
+    transition: 0.2s;
 }
 
 .btn-cancel-queue:hover {
-    background-color: #d13030;
+    background: #fff5f5;
 }
 
-/* Modals */
+/* Modal Styling */
 .modal-overlay {
     position: fixed;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
-    background-color: rgba(0, 0, 0, 0.4);
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.5);
     display: flex;
-    justify-content: center;
     align-items: center;
+    justify-content: center;
     z-index: 1000;
 }
 
 .cancel-modal {
-    background-color: #fffcf0;
-    border: 5px solid #574238;
-    border-radius: 16px;
-    padding: 40px 40px;
-    width: 480px;
-    position: relative;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-}
-
-.close-btn {
-    position: absolute;
-    top: 20px;
-    right: 20px;
-    background: none;
-    border: none;
-    cursor: pointer;
-    padding: 0;
-}
-
-.modal-title {
-    font-size: 1.5rem;
-    font-weight: normal;
-    margin-bottom: 30px;
-    color: #000;
-    margin-top: 10px;
-}
-
-.modal-details {
-    margin-bottom: 40px;
-    font-size: 1.25rem;
-    line-height: 1.8;
-}
-
-.modal-actions-center {
-    display: flex;
-    justify-content: center;
+    background: white;
+    padding: 30px;
+    border-radius: 24px;
+    width: 90%;
+    max-width: 350px;
+    text-align: center;
 }
 
 .btn-confirm-cancel {
-    background-color: #f14444;
+    background: #ff7675;
     color: white;
     border: none;
-    border-radius: 10px;
-    padding: 10px 40px;
-    font-size: 1.2rem;
-    cursor: pointer;
-}
-
-.btn-confirm-cancel:hover {
-    background-color: #d13030;
+    padding: 12px 25px;
+    border-radius: 12px;
+    margin-top: 10px;
+    width: 100%;
 }

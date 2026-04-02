@@ -1,137 +1,193 @@
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Noto+Sans+Thai:wght@300;400;500;600&display=swap');
+/* คอนเทนเนอร์หลัก */
+.notification-page-container {
+  padding: 40px 15px;
+  max-width: 700px;
+  margin: 0 auto;
+}
 
-  :root {
-    --cream: #FDF6EC; --sand: #F2E0C3; --gold: #C9983A; --gold-lt: #E8B84B;
-    --brown: #5C3D1E; --brown-md: #7A5230; --brown-dk: #3B230D; --warm-wh: #FFFDF8;
-  }
+/* การ์ดตรงกลาง */
+.notification-card-central {
+  background: #ffffff;
+  border-radius: 20px;
+  padding: 25px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+}
 
-  .np-page {
-    min-height: 100vh; background: var(--cream);
-    padding: 2.5rem 1.25rem 4rem; font-family: 'Noto Sans Thai', sans-serif;
-    display: flex; justify-content: center;
-  }
-  .np-inner { width: 100%; max-width: 640px; }
+/* ส่วนหัว */
+.notification-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+}
 
-  /* Back button */
-  .np-back {
-    background: none; border: none; cursor: pointer;
-    display: inline-flex; align-items: center; gap: 6px;
-    color: var(--brown-md); font-size: 0.9rem; font-weight: 500;
-    padding: 6px 0; margin-bottom: 1.5rem;
-    font-family: 'Noto Sans Thai', sans-serif;
-    transition: color .2s;
-  }
-  .np-back:hover { color: var(--gold); }
-  .np-back svg { stroke: currentColor; }
+.title-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
 
-  /* Card */
-  .np-card {
-    background: var(--warm-wh); border-radius: 20px;
-    border: 1px solid rgba(201,152,58,.2);
-    box-shadow: 0 8px 32px rgba(92,61,30,.10);
-    overflow: hidden;
-  }
+.title-group h1 {
+  font-size: 22px;
+  color: #333;
+  margin: 0;
+}
 
-  /* Header */
-  .np-header {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 1.5rem 1.75rem 1.25rem;
-    border-bottom: 1px solid rgba(201,152,58,.15);
-    background: linear-gradient(135deg, rgba(201,152,58,.06), rgba(242,224,195,.08));
-  }
-  .np-title-wrap {}
-  .np-title {
-    font-family: 'Playfair Display', serif; font-size: 1.55rem; font-weight: 700;
-    color: var(--brown-dk); line-height: 1.2;
-  }
-  .np-badge {
-    display: inline-block; background: var(--gold); color: white;
-    font-size: 0.72rem; font-weight: 700; padding: 2px 10px;
-    border-radius: 50px; margin-top: 4px; letter-spacing: 0.04em;
-  }
-  .np-mark-all {
-    background: none; border: 1.5px solid var(--gold);
-    color: var(--gold); border-radius: 8px; padding: 7px 16px;
-    font-size: 0.82rem; font-weight: 600; cursor: pointer;
-    font-family: 'Noto Sans Thai', sans-serif;
-    transition: background .2s, color .2s;
-  }
-  .np-mark-all:hover { background: var(--gold); color: white; }
+.unread-badge {
+  background: #ff4d4f;
+  color: white;
+  padding: 2px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: bold;
+}
 
-  /* List */
-  .np-list { padding: 0.5rem 0; }
+/* ปุ่มทำเป็นอ่านแล้ว */
+.btn-mark-all {
+  background: transparent;
+  border: none;
+  color: #e67e22;
+  font-weight: 600;
+  cursor: pointer;
+  font-size: 14px;
+}
 
-  .np-item {
-    display: flex; gap: 14px; align-items: flex-start;
-    padding: 1rem 1.75rem; cursor: pointer;
-    border-bottom: 1px solid rgba(201,152,58,.08);
-    transition: background .15s;
-    position: relative;
-  }
-  .np-item:last-child { border-bottom: none; }
-  .np-item:hover { background: rgba(242,224,195,.35); }
-  .np-item.unread { background: rgba(201,152,58,.06); }
-  .np-item.unread:hover { background: rgba(201,152,58,.13); }
+.btn-mark-all:hover {
+  text-decoration: underline;
+}
 
-  .np-color-bar {
-    width: 4px; min-width: 4px; border-radius: 4px; align-self: stretch;
-    margin-top: 2px; flex-shrink: 0;
-  }
+.divider {
+  border: 0;
+  border-top: 1px solid #f0f0f0;
+  margin-bottom: 20px;
+}
 
-  .np-body { flex: 1; min-width: 0; }
+/* รายการแจ้งเตือน */
+.notification-item {
+  display: flex;
+  gap: 15px;
+  padding: 15px;
+  border-radius: 12px;
+  margin-bottom: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+}
 
-  .np-top-row {
-    display: flex; align-items: center; gap: 8px; margin-bottom: 4px;
-    flex-wrap: wrap;
-  }
-  .np-type-chip {
-    display: inline-block; font-size: 0.7rem; font-weight: 700;
-    padding: 2px 9px; border-radius: 50px; letter-spacing: 0.04em;
-  }
-  .np-new-pip {
-    width: 7px; height: 7px; border-radius: 50%;
-    background: var(--gold); flex-shrink: 0; margin-left: 2px;
-  }
+/* 🟠 สไตล์สำหรับรายการที่ยังไม่อ่าน */
+.notification-item.unread {
+  background-color: #fff9f0;
+  border: 1px solid #ffecd1;
+}
 
-  .np-item-title {
-    font-weight: 600; color: var(--brown-dk); font-size: 0.93rem;
-    margin-bottom: 2px; line-height: 1.4;
-  }
-  .np-item-msg { color: var(--brown-md); font-size: 0.85rem; line-height: 1.55; }
-  .np-time { font-size: 0.75rem; color: var(--gold); margin-top: 5px; display: block; }
+/* ⚪ สไตล์สำหรับรายการที่อ่านแล้ว */
+.notification-item.read {
+  background-color: #ffffff;
+  border: 1px solid #f5f5f5;
+  opacity: 0.8;
+}
 
-  /* Empty */
-  .np-empty {
-    padding: 4rem 2rem; text-align: center;
-    display: flex; flex-direction: column; align-items: center; gap: 1rem;
-  }
-  .np-empty-icon {
-    width: 64px; height: 64px; border-radius: 50%;
-    background: rgba(201,152,58,.12);
-    display: flex; align-items: center; justify-content: center;
-  }
-  .np-empty p { color: var(--brown-md); font-size: 0.95rem; opacity: .75; }
+.notification-item:hover {
+  transform: scale(1.01);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+}
 
-  /* Loading */
-  .np-loading { padding: 3rem 2rem; text-align: center; }
-  .np-spinner {
-    width: 36px; height: 36px; border-radius: 50%; margin: 0 auto 12px;
-    border: 3px solid rgba(201,152,58,.2); border-top-color: var(--gold);
-    animation: spin .8s linear infinite;
-  }
-  @keyframes spin { to { transform: rotate(360deg); } }
-  .np-loading span { color: var(--brown-md); font-size: 0.9rem; }
+/* ไอคอนวงกลม */
+.icon-circle {
+  width: 45px;
+  height: 45px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  background: #fdf2e9;
+}
 
-  /* Error */
-  .np-error {
-    margin: 1.5rem; padding: 1rem 1.25rem;
-    background: rgba(185,64,64,.08); border: 1px solid rgba(185,64,64,.25);
-    border-radius: 10px; color: #b94040; font-size: 0.88rem; text-align: center;
-  }
+/* ข้อมูลภายใน */
+.noti-info {
+  flex: 1;
+}
 
-  /* Skeleton */
-  .skel {
-    background: linear-gradient(90deg, var(--sand) 25%, var(--cream) 50%, var(--sand) 75%);
-    background-size: 200% 100%; border-radius: 8px; animation: shimmer 1.4s infinite;
-  }
-  @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+.noti-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 4px;
+}
+
+.noti-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #2d3436;
+  margin: 0;
+}
+
+.noti-time {
+  font-size: 11px;
+  color: #b2bec3;
+}
+
+.noti-message {
+  font-size: 14px;
+  color: #636e72;
+  margin: 0;
+  line-height: 1.4;
+}
+
+/* จุดแดงบอกสถานะ Unread */
+.unread-dot-indicator {
+  width: 10px;
+  height: 10px;
+  background: #ff4d4f;
+  border-radius: 50%;
+  align-self: center;
+  margin-left: 10px;
+}
+
+/* หน้าว่างเปล่า */
+.empty-state {
+  text-align: center;
+  padding: 50px 0;
+}
+
+.empty-state img {
+  width: 60px;
+  opacity: 0.3;
+  margin-bottom: 15px;
+}
+
+.empty-state p {
+  color: #b2bec3;
+}
+
+/* จัดการกล่อง Empty State */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center; /* จัดกลางแนวนอน */
+  justify-content: center; /* จัดกลางแนวตั้ง */
+  padding: 60px 0;
+  text-align: center;
+}
+
+.empty-state img {
+  width: 80px;      /* ปรับขนาดรูป */
+  height: auto;
+  margin-bottom: 20px;
+  opacity: 0.2;     /* ให้ดูจางๆ สไตล์ Minimal */
+}
+
+.empty-state p {
+  color: #a0a0a0;   /* สีเทาอ่อน */
+  font-size: 16px;
+  margin: 0;
+}
+
+/* ปรับแต่งหัวข้อ "การแจ้งเตือน" ให้มีช่องว่าง */
+.notification-header h1 {
+  font-size: 24px;
+  font-weight: bold;
+  margin-bottom: 10px;
+  color: #333;
+}

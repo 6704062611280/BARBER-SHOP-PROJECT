@@ -8,11 +8,12 @@ from app.model import (
     PageView, Notification, CustomeIMgWebsite, Description, CategoryImg,
     Chair
 )
+from sqlalchemy.orm import joinedload
 from app.rolebase import require_roles
 from app.backtask import get_current_user
 from app.schemas import (
     PageViewCreate, CustomeIMgWebsiteUpdate, CustomeIMgWebsiteResponse,
-    DescriptionUpdate, DescriptionResponse, NotificationResponse
+    DescriptionUpdate, DescriptionResponse, NotificationResponse,NotificationListResponse
 )
 from datetime import date, timedelta, datetime
 from typing import Literal
@@ -295,8 +296,8 @@ def update_description(
 # PROFILE & FILE UPLOADS
 # ═══════════════════════════════════════════
 
-# แก้ตัวสะกดให้ตรงตามรูป (deafault)
-DEFAULT_AVATAR = "static/profile_images/deafault_profile/profile-icon.png"
+# แก้ตัวสะกดให้ตรงตามรูป (default)
+DEFAULT_AVATAR = "static/profile_images/default_profile/profile-icon.png"
 # โฟลเดอร์สำหรับเก็บรูปที่ user อัปโหลดใหม่
 UPLOAD_DIR = "static/profile_images/user_profile"
 
@@ -349,3 +350,28 @@ def get_notifications(
     return q.order_by(Notification.create_at.desc()).limit(50).all()
 
 # ... (mark_read และ mark_all_read ใช้ logic เดิมได้เลย)
+
+@router.get("/chairs")
+def get_chairs(db: Session = Depends(get_db)):
+    # ดึงเก้าอี้ทั้งหมด พร้อมข้อมูลช่างที่นั่งอยู่ (ถ้ามี)
+    chairs = db.query(Chair).options(joinedload(Chair.barber).joinedload(Barber.user_data)).all()
+    return chairs
+
+@router.get("/notifications", response_model=NotificationListResponse) 
+def get_notifications(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    # ดึงข้อมูลและเรียงลำดับจากใหม่ไปเก่า (desc)
+    notifications = db.query(Notification)\
+        .filter(Notification.user_id == current_user.id)\
+        .order_by(Notification.create_at.desc())\
+        .all()
+    
+    unread_count = db.query(Notification)\
+        .filter(
+            Notification.user_id == current_user.id, 
+            Notification.is_read == False
+        ).count()
+    
+    return {
+        "items": notifications,
+        "unread_count": unread_count
+    }

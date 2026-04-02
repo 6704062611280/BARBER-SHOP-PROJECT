@@ -1,50 +1,176 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-/* สไตล์กำหนดสำหรับประวัติร้านที่เรนเดอร์จาก HTML (history-content) */
-/* กำหนดสไตล์เริ่มต้นให้เป็นตัวอักษรขนาดเล็กตามที่คุณต้องการ */
-.history-content {
-    font-size: 14px; /* Default ขนาดเล็ก */
-    line-height: 1.6; /* เว้นบรรทัดให้อ่านง่าย */
-    color: #4b5563; /* สีเทาเข้ม */
+.home-container {
+    background-color: #fffdf9;
 }
 
-/* หัวข้อใหญ่มาก h1 (ใน HTML) */
-.history-content h1 {
-    font-size: 2.5rem; /* ขนาดใหญ่ (40px) */
-    font-weight: 800; /* หนามาก */
-    margin-bottom: 1rem; /* เว้นระยะด้านล่าง */
-    color: #1c2a4f; /* สีน้ำเงินเข้มของร้าน */
+/* Hero Slideshow */
+.hero-section {
+    position: relative;
+    width: 100%;
+    height: 400px;
+    background: #1a1a1a;
+    overflow: hidden;
 }
 
-/* หัวข้อปานกลาง h2 (ใน HTML) */
-.history-content h2 {
-    font-size: 2rem; /* (32px) */
+.hero-track {
+    display: flex;
+    height: 100%;
+    transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.hero-slide {
+    min-width: 100%;
+    height: 100%;
+    position: relative;
+}
+
+.hero-slide img {
+    width: 100%;
+    height: 100%;
+    object-cover: cover;
+}
+
+.hero-overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to bottom, transparent, rgba(0,0,0,0.4));
+}
+
+.hero-dots {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 10px;
+    z-index: 10;
+}
+
+.dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.5);
+    cursor: pointer;
+}
+
+.dot.active {
+    background: #FFA333;
+    width: 24px;
+    border-radius: 4px;
+}
+
+/* Promo Section */
+.promo-section {
+    padding: 60px 20px;
+    text-align: center;
+}
+
+.content-width {
+    max-width: 1000px;
+    margin: 0 auto;
+    position: relative;
+}
+
+.section-title {
+    font-size: 2rem;
     font-weight: 700;
-    margin-bottom: 0.8rem;
-    color: #1c2a4f;
+    color: #2d3436;
+    margin-bottom: 40px;
 }
 
-/* หัวข้อเล็ก h3 (ใน HTML) */
-.history-content h3 {
-    font-size: 1.75rem; /* (28px) */
+.promo-display-container {
+    position: relative;
+    border-radius: 24px;
+    overflow: visible; /* ให้ปุ่มลอยออกมาได้ */
+}
+
+.promo-fade-box {
+    width: 100%;
+    height: 350px;
+    background: #eee;
+    border-radius: 24px;
+    overflow: hidden;
+    position: relative;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+}
+
+.promo-img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    opacity: 0;
+    transition: opacity 1.5s ease-in-out;
+}
+
+.promo-img.active {
+    opacity: 1;
+}
+
+/* Floating Booking Button */
+.floating-booking-area {
+    position: absolute;
+    bottom: -30px;
+    right: 20px;
+    z-index: 20;
+}
+
+.btn-main-booking {
+    background: #1a1a1a;
+    color: white;
+    padding: 15px 35px;
+    border-radius: 16px;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+    transition: 0.3s;
+}
+
+.btn-main-booking:hover {
+    transform: translateY(-5px);
+    background: #8B6020;
+}
+
+.btn-text-top {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    opacity: 0.8;
+}
+
+.btn-text-main {
+    font-size: 1.2rem;
     font-weight: 600;
-    margin-bottom: 0.6rem;
 }
 
-/* ย่อหน้า p (ใน HTML) */
-.history-content p {
-    margin-bottom: 1.2rem; /* เว้นระยะระหว่างย่อหน้า */
+/* Announcement Section */
+.announcement-section {
+    padding: 40px 20px 80px;
 }
 
-/* ตัวหนา b หรือ strong (ใน HTML) */
-.history-content b, 
-.history-content strong {
-    font-weight: 700;
-    color: #1c2a4f;
+.announcement-card {
+    background: white;
+    padding: 40px;
+    border-radius: 24px;
+    position: relative;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.02);
 }
 
-/* ตัวอย่างการกำหนดสไตล์เพิ่มเติมที่คุณสามารถใช้ได้ */
-/* .history-content span.highlight {
-    background-color: yellow;
-} */
+.card-decoration {
+    position: absolute;
+    top: 0; left: 50%;
+    transform: translateX(-50%);
+    width: 60px; height: 4px;
+    background: #FFA333;
+    border-radius: 0 0 10px 10px;
+}
+
+.announcement-html {
+    color: #636e72;
+    line-height: 1.8;
+    font-size: 1.05rem;
+}

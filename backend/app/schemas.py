@@ -1,13 +1,19 @@
 from pydantic import BaseModel,EmailStr, Field
 from datetime import datetime,date,time
-from app.model import UserRole,BookedStatus,TypeUser,LeaveStatus,NotificationType,CategoryImg
+from app.model import UserRole,BookedStatus,TypeUser,LeaveStatus,NotificationType,CategoryImg,PreUserStatus
 from typing import Optional
+from typing import List
 
 
 class UserCreateRegister(BaseModel):
     email: str
     otp: str
 
+
+class OTPVerifyRequest(BaseModel):
+    email: str
+    otp: str
+    purpose: PreUserStatus
 
 class UserResponseRegister(BaseModel):
     id:int
@@ -35,6 +41,7 @@ class UserResponseLogin(BaseModel):
     
     class Config:
         from_attributes = True
+
 
 
 
@@ -98,6 +105,7 @@ class UserResponsePreRegister(BaseModel):
         from_attributes = True
 
 class UserUpdateProfile(BaseModel):
+    username: Optional[str] = None # <--- เพิ่มตัวนี้
     firstname: Optional[str] = None
     lastname: Optional[str] = None
     phone: Optional[str] = None
@@ -107,22 +115,41 @@ class UserChangePassword(BaseModel):
     old_password: str = Field(min_length=8)
     new_password: str = Field(min_length=8)
 
-
-class UserChangeEmail(BaseModel):
-    new_email: str
-    otp: str
-
 class LetterCreate(BaseModel):
     report:str
     date_leave:date
 
+# 1. สร้าง Schema สำหรับ User ข้อมูลพื้นฐาน (เพื่อส่งไปกับ Barber)
+class UserInBarberResponse(BaseModel):
+    id: int
+    username: str
+    firstname: str
+    lastname: Optional[str] = None
+    phone: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+# 2. สร้าง BarberResponse (คลาสนี้ต้องอยู่ก่อน LetterResponse)
+class BarberResponse(BaseModel):
+    id: int
+    user_id: int
+    user_data: Optional[UserInBarberResponse] = None # ดึงข้อมูลจาก Relationship user_data
+
+    class Config:
+        from_attributes = True
+
+# 3. แก้ไข LetterResponse ให้เรียกใช้ BarberResponse ที่สร้างไว้
 class LetterResponse(BaseModel):
-    id: int   
-    barber_id:int
-    report:str
-    date_leave:date
-    create_at:datetime
-    status:LeaveStatus
+    id: int
+    date_leave: date
+    report: str
+    status: str
+    # ตอนนี้ระบบจะรู้จัก BarberResponse แล้ว และจะส่งข้อมูล barber -> user_data ไปให้
+    barber: Optional[BarberResponse] = None 
+
+    class Config:
+        from_attributes = True
 
 # ═══════════════════════════════════════════
 # SHOP SETTING
@@ -164,5 +191,19 @@ class NotificationResponse(BaseModel):
     ref_id   : Optional[int]
     create_at: datetime
  
+    class Config:
+        from_attributes = True
+
+class PasswordVerify(BaseModel):
+    password: str
+
+class ResetPassworld(BaseModel):
+    email: str
+    new_password: str
+
+class NotificationListResponse(BaseModel):
+    items: List[NotificationResponse] # รายการแจ้งเตือนทั้งหมด
+    unread_count: int                 # จำนวนที่ยังไม่ได้อ่าน
+
     class Config:
         from_attributes = True

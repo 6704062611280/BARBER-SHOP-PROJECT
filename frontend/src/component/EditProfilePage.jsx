@@ -7,7 +7,7 @@ import "./style/EditProfilePage.css";
 
 export default function EditProfilePage() {
   const navigate = useNavigate();
-  const { baseURL } = useContext(DataContext);
+  const { baseURL, fetchUserData } = useContext(DataContext); // ดึง fetchUserData มาใช้
   const token = localStorage.getItem("token");
 
   const [form, setForm] = useState({
@@ -115,6 +115,7 @@ export default function EditProfilePage() {
       if (updateRes.ok) {
         setShowPasswordConfirm(false);
         setForm((prev) => ({ ...prev, currentPassword: "" }));
+        await fetchUserData(); // 🌟 เรียกฟังก์ชันนี้เพื่อให้ Navbar และ Profile ทั่วเว็บอัปเดตทันที
         Swal.fire({ 
             icon: "success", 
             title: "สำเร็จ", 

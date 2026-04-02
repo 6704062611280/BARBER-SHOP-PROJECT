@@ -1,57 +1,94 @@
-import { createContext, useState, useEffect } from "react"
-import { jwtDecode } from "jwt-decode"
+import { createContext, useState, useEffect, useCallback } from "react";
+import { jwtDecode } from "jwt-decode";
 
-export const DataContext = createContext()
+export const DataContext = createContext();
 
 export function DataProvider({ children }) {
-    
-    const [role, setRole] = useState(null)
-    const [islogin, setIsLogin] = useState(false)
-    const [userId, setUserId] = useState(null)
-    const [username, setUsername] = useState("ชื่อผู้ใช้งาน")
+    const [role, setRole] = useState(null);
+    const [islogin, setIsLogin] = useState(false);
+    const [userId, setUserId] = useState(null);
+    const [username, setUsername] = useState("ชื่อผู้ใช้งาน");
+    const [profileImg, setProfileImg] = useState("");
+    const [userData, setUserData] = useState(null); // เก็บข้อมูลผู้ใช้อื่นๆ (ถ้ามี)
 
-    // ✅ เพิ่มตรงนี้
-    const baseURL = import.meta.env.VITE_API_URL
-    console.log("BASE URL:", baseURL);
+    const baseURL = import.meta.env.VITE_API_URL;
 
-    // ===== Custom Web Page =====
-    const [heroSlides, setHeroSlides] = useState(["/images/slide1.jpg"])
-    const [promoSlides, setPromoSlides] = useState(["/images/slide2.jpg"])
-    const [announcementText, setAnnouncementText] = useState("ใส่ข้อมูลร้านตรงนี้...")
+    // 🔄 ฟังก์ชันดึงข้อมูล Profile จาก Backend
+    const fetchUserData = useCallback(async () => {
+        const token = localStorage.getItem("token");
+        if (!token) return;
 
-    // ===== Queue =====
-    const [bookedQueues, setBookedQueues] = useState([
-        { id: 1, code: "Q-001", time: "10:00 - 11:00", date: "12 ต.ค. 2026" }
-    ])
+        try {
+            const response = await fetch(`${baseURL}/auth/profile`, {
+                headers: { 
+                    Authorization: `Bearer ${token}`,
+                    "Content-Type": "application/json"
+                },
+            });
 
+            if (response.ok) {
+                const data = await response.json();
+                
+                // อัปเดต State ทุกตัวด้วยข้อมูลจริงจาก DB
+                setUserId(data.id);
+                setUsername(data.username);
+                setProfileImg(data.profile_img || "");
+                setRole(data.rolestatus); // OWNER, EMPLOYEE, CUSTOMER
+                setUserData(data); // เก็บก้อนข้อมูลทั้งหมดเผื่อใช้ในหน้า Profile
+                setIsLogin(true);
+            } else if (response.status === 401) {
+                // ถ้า Token หมดอายุ หรือไม่ถูกต้อง
+                handleLogout();
+            }
+        } catch (err) {
+            console.error("Fetch user error:", err);
+        }
+    }, [baseURL]);
+
+    // 🚪 ฟังก์ชันออกจากระบบ
+    const handleLogout = () => {
+        localStorage.removeItem("token");
+        setRole(null);
+        setUserId(null);
+        setIsLogin(false);
+        setUsername("ชื่อผู้ใช้งาน");
+        setProfileImg("");
+        setUserData(null);
+    };
+
+    // 🛠 ตรวจสอบสถานะการ Login ครั้งแรกที่เปิดเว็บ
     useEffect(() => {
-        const token = localStorage.getItem("token")
+        const token = localStorage.getItem("token");
         if (token) {
             try {
-                const decoded = jwtDecode(token)
-                setRole(decoded.role)
-                setUserId(decoded.user_id)
-                if (decoded.username) setUsername(decoded.username)
-                setIsLogin(true)
+                // ตรวจสอบเบื้องต้นผ่าน JWT
+                const decoded = jwtDecode(token);
+                const currentTime = Date.now() / 1000;
+                
+                if (decoded.exp < currentTime) {
+                    handleLogout(); // Token หมดอายุ
+                } else {
+                    fetchUserData(); // ดึงข้อมูลล่าสุดจาก DB
+                }
             } catch (e) {
-                console.error("Invalid token")
+                handleLogout();
             }
         }
-    }, [])
+    }, [fetchUserData]);
 
     return (
         <DataContext.Provider value={{
-            role, userId, islogin, setRole, setIsLogin, username, setUsername,
-
-            // ✅ ส่งออก
-            baseURL,
-
-            heroSlides, setHeroSlides,
-            promoSlides, setPromoSlides,
-            announcementText, setAnnouncementText,
-            bookedQueues, setBookedQueues
+            role, setRole,
+            userId, setUserId,
+            islogin, setIsLogin, 
+            username, setUsername, 
+            profileImg, setProfileImg,
+            userData, // ส่งก้อนข้อมูลทั้งหมดไปด้วย
+            fetchUserData, 
+            handleLogout, // ส่งฟังก์ชัน logout ไปใช้ใน Navbar
+            baseURL
         }}>
             {children}
         </DataContext.Provider>
-    )
+    );
 }

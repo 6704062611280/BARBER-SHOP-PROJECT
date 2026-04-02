@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session, joinedload
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta,time
 from abc import ABC, abstractmethod
 
 from app.database import get_db
@@ -106,13 +106,59 @@ def get_queue_or_404(db: Session, queue_id: int):
     if not queue: raise HTTPException(404, "Queue not found")
     return queue
 
+# แก้ไขใน router.get("/chairs")
 @router.get("/chairs")
 def view_chairs(dateshop: date = date.today(), db: Session = Depends(get_db)):
+    # 1. เช็คสถานะการเปิดร้านจากหน้า ShopSetting (OpeningDate)
     opening = db.query(OpeningDate).filter(OpeningDate.date_open == dateshop).first()
+    
+    # ถ้าร้านปิด หรือยังไม่ได้กดเปิดร้าน (ไม่มี record)
     if not opening or not opening.is_open:
-        raise HTTPException(400, "ร้านปิดหรือไม่มีตารางงานในวันที่เลือก")
-    chairs = db.query(Chair).filter(Chair.barber_id.isnot(None)).all()
-    return {"date": dateshop, "chairs": chairs}
+        return {
+            "shop_status": "closed",
+            "chairs": []
+        }
+
+    # 2. ถ้าร้านเปิด -> ดึงเก้าอี้ "ทั้งหมด" (เพื่อให้โชว์ตัวที่ไม่พร้อมด้วย)
+    all_chairs = db.query(Chair).all()
+    
+    result = []
+    for c in all_chairs:
+        # A. เช็คว่ามีคนตัด (ช่างประจำ) ไหม
+        if not c.barber_id:
+            status = "not_ready"
+            status_text = "ไม่พร้อมบริการ (ไม่มีช่าง)"
+            allow_booking = False
+        else:
+            # B. ถ้ามีคนตัด เช็คคิวที่สร้างขึ้นมาตอน open_shop ว่าเหลือว่างไหม
+            available_slots = db.query(QueueSlots).filter(
+                QueueSlots.chair_id == c.id,
+                QueueSlots.date_working == dateshop,
+                QueueSlots.status == BookedStatus.AVAILABLE
+            ).count()
+
+            if available_slots > 0:
+                status = "ready"
+                status_text = "พร้อมให้บริการ"
+                allow_booking = True
+            else:
+                status = "full"
+                status_text = "คิวเต็ม"
+                allow_booking = False
+
+        result.append({
+            "id": c.id,
+            "name": c.name,
+            "status": status,
+            "statusText": status_text,
+            "allowBooking": allow_booking,
+            "barber_name": c.barber.user_data.firstname if c.barber else None
+        })
+
+    return {
+        "shop_status": "open",
+        "chairs": result
+    }
 
 @router.post("/user/{chair_id}/queues/{queue_id}/booked", response_model=QueueResponse)
 def booked_by_customer(chair_id: int, queue_id: int, user: User = Depends(require_roles([UserRole.CUSTOMER])), db: Session = Depends(get_db)):
@@ -196,3 +242,65 @@ def view_my_queue(user: User = Depends(require_roles([UserRole.CUSTOMER])), db: 
         "queue_id": q.id, "chair_name": q.chair.name if q.chair else None,
         "date": q.date_working, "start_time": q.start_time, "status": q.status.value
     } for q in queues]
+
+@router.post("/set_opening")
+def set_opening(
+    open_time: str,
+    close_time: str,
+    is_open: bool,
+    db: Session = Depends(get_db)
+):
+    today = date.today()
+
+    opening = db.query(OpeningDate).filter(
+        OpeningDate.date_open == today
+    ).first()
+
+    if not opening:
+        opening = OpeningDate(date_open=today)
+        db.add(opening)
+
+    opening.open_time = time.fromisoformat(open_time)
+    opening.close_time = time.fromisoformat(close_time)
+    opening.is_open = is_open
+
+    db.commit()
+
+    return {"message": "ตั้งค่าเวลาเรียบร้อย"}
+
+@router.post("/close_shop")
+def close_shop(
+    user: User = Depends(require_roles([UserRole.OWNER])),
+    db: Session = Depends(get_db)
+):
+    today = date.today()
+
+    # หา opening วันนี้
+    opening = db.query(OpeningDate).filter(
+        OpeningDate.date_open == today
+    ).first()
+
+    if not opening or not opening.is_open:
+        raise HTTPException(400, "ร้านไม่ได้เปิดอยู่")
+
+    # ปิดร้าน
+    opening.is_open = False
+
+    # ลบ queue ทั้งหมดของวันนี้
+    db.query(QueueSlots).filter(
+        QueueSlots.date_working == today
+    ).delete(synchronize_session=False)
+
+    db.commit()
+
+    return {"message": "ปิดร้านเรียบร้อยและลบคิวทั้งหมดเรียบร้อย"}
+
+@router.get("/queues")
+def get_queues_by_chair(chair_id: int, dateshop: date = date.today(), db: Session = Depends(get_db)):
+    # ดึงคิวทั้งหมดของเก้าอี้ตัวนี้ในวันที่กำหนด
+    queues = db.query(QueueSlots).filter(
+        QueueSlots.chair_id == chair_id,
+        QueueSlots.date_working == dateshop
+    ).order_by(QueueSlots.start_time).all()
+    
+    return queues

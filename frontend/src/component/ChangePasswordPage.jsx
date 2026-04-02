@@ -1,116 +1,187 @@
 import { useNavigate } from "react-router-dom"
-import { useState } from "react"
+import { useState, useContext } from "react"
+import { DataContext } from "../DataContext"
 import "./style/ChangePasswordPage.css"
 
-export default function ChangePasswordPage(){
+export default function ChangePasswordPage() {
   const navigate = useNavigate()
-  const [form, setForm] = useState({
-    currentPassword: "",
-    newPassword: "",
-    confirmPassword: ""
-  })
+  const { baseURL } = useContext(DataContext)
 
+  const [form, setForm] = useState({ currentPassword: "", newPassword: "", confirmPassword: "" })
   const [showConfirm, setShowConfirm] = useState(false)
   const [showSuccess, setShowSuccess] = useState(false)
+  const [errorMsg, setErrorMsg] = useState("")
+  const [loading, setLoading] = useState(false)
+  const [show, setShow] = useState({ cur: false, nw: false, cf: false })
 
   const handleChange = (field, value) => {
-    setForm((prev) => ({ ...prev, [field]: value }))
+    setErrorMsg("")
+    setForm(prev => ({ ...prev, [field]: value }))
   }
 
-  const handleSubmit = () => {
-    if (form.newPassword !== form.confirmPassword) {
-      alert("New passwords do not match")
-      return
-    }
+  const strength = (pw) => {
+    if (!pw) return 0
+    let s = 0
+    if (pw.length >= 8)           s++
+    if (/[A-Z]/.test(pw))         s++
+    if (/[0-9]/.test(pw))         s++
+    if (/[^A-Za-z0-9]/.test(pw))  s++
+    return s
+  }
+  const pwStrength = strength(form.newPassword)
+  const strengthLabel = ["", "อ่อน", "พอใช้", "ดี", "แข็งแกร่ง"][pwStrength]
+  const strengthColor = ["", "#e07b54", "#e8b84b", "#6dbf8c", "#5b9bd5"][pwStrength]
+
+  const handleSubmit = (e) => {
+    e.preventDefault()
+    if (form.newPassword.length < 8) { setErrorMsg("รหัสผ่านใหม่ต้องมีอย่างน้อย 8 ตัวอักษร"); return }
+    if (form.newPassword !== form.confirmPassword) { setErrorMsg("รหัสผ่านใหม่ไม่ตรงกัน"); return }
     setShowConfirm(true)
   }
 
-  const handleConfirmChange = () => {
+  const handleConfirmChange = async () => {
     setShowConfirm(false)
-    setShowSuccess(true)
-    setForm({
-      currentPassword: "",
-      newPassword: "",
-      confirmPassword: ""
-    })
+    setLoading(true)
+    setErrorMsg("")
+    try {
+      const res = await fetch(`${baseURL}/auth/change_password`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${localStorage.getItem("token")}`
+        },
+        body: JSON.stringify({ old_password: form.currentPassword, new_password: form.newPassword })
+      })
+      const data = await res.json()
+      if (res.ok) {
+        setShowSuccess(true)
+        setForm({ currentPassword: "", newPassword: "", confirmPassword: "" })
+      } else {
+        setErrorMsg(data.detail || "เกิดข้อผิดพลาด")
+      }
+    } catch {
+      setErrorMsg("ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้")
+    } finally {
+      setLoading(false)
+    }
   }
 
-  const closeModals = () => {
-    setShowConfirm(false)
-    setShowSuccess(false)
-  }
+  const EyeIcon = ({ open }) => (
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      {open
+        ? <><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></>
+        : <><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></>
+      }
+    </svg>
+  )
+
+  const FieldRow = ({ label, fieldKey, showKey, placeholder }) => (
+    <div className="cp-field">
+      <label className="cp-label">{label}</label>
+      <div className="cp-input-wrap">
+        <input
+          className="cp-input"
+          type={show[showKey] ? "text" : "password"}
+          required
+          value={form[fieldKey]}
+          onChange={e => handleChange(fieldKey, e.target.value)}
+          placeholder={placeholder}
+        />
+        <button type="button" className="cp-eye"
+          onClick={() => setShow(s => ({ ...s, [showKey]: !s[showKey] }))}>
+          <EyeIcon open={show[showKey]} />
+        </button>
+      </div>
+    </div>
+  )
 
   return (
-    <div className="change-password-page">
-      <button type="button" className="back-button" onClick={() => navigate(-1)}>
-        ←
+    <div className="cp-page">
+      <button className="cp-back" onClick={() => navigate(-1)}>
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M19 12H5M12 19l-7-7 7-7"/>
+        </svg>
+        ย้อนกลับ
       </button>
-      <main className="change-password-card-wrapper">
-        <section className="card">
-          <h2>เปลี่ยนรหัสผ่าน</h2>
-          <div className="avatar-circle">🔒</div>
 
-          <div className="field">
-            <label>รหัสผ่านปัจจุบัน</label>
-            <input
-              type="password"
-              value={form.currentPassword}
-              onChange={(e) => handleChange("currentPassword", e.target.value)}
-              placeholder="กรอกรหัสผ่านปัจจุบัน"
-            />
+      <div className="cp-center">
+        <div className="cp-card">
+          <div className="cp-icon-wrap">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+            </svg>
           </div>
+          <h2 className="cp-title">เปลี่ยนรหัสผ่าน</h2>
+          <p className="cp-sub">กรอกรหัสผ่านปัจจุบันและรหัสผ่านใหม่ที่ต้องการ</p>
 
-          <div className="field">
-            <label>รหัสผ่านใหม่</label>
-            <input
-              type="password"
-              value={form.newPassword}
-              onChange={(e) => handleChange("newPassword", e.target.value)}
-              placeholder="กรอกรหัสผ่านใหม่"
-            />
-          </div>
+          {errorMsg && (
+            <div className="cp-error">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+              </svg>
+              {errorMsg}
+            </div>
+          )}
 
-          <div className="field">
-            <label>ยืนยันรหัสผ่านใหม่</label>
-            <input
-              type="password"
-              value={form.confirmPassword}
-              onChange={(e) => handleChange("confirmPassword", e.target.value)}
-              placeholder="ยืนยันรหัสผ่านใหม่"
-            />
-          </div>
+          <form onSubmit={handleSubmit}>
+            <FieldRow label="รหัสผ่านปัจจุบัน" fieldKey="currentPassword" showKey="cur" placeholder="กรอกรหัสผ่านปัจจุบัน" />
+            <FieldRow label="รหัสผ่านใหม่"      fieldKey="newPassword"      showKey="nw"  placeholder="อย่างน้อย 8 ตัวอักษร" />
 
-          <div className="button-row">
-            <button type="button" className="orange-button" onClick={handleSubmit}>
-              เปลี่ยนรหัสผ่าน
+            {form.newPassword && (
+              <div className="cp-strength-wrap">
+                <div className="cp-bars">
+                  {[1,2,3,4].map(i => (
+                    <div key={i} className="cp-bar"
+                      style={{ background: i <= pwStrength ? strengthColor : 'var(--sand)' }} />
+                  ))}
+                </div>
+                <span className="cp-strength-lbl" style={{ color: strengthColor }}>{strengthLabel}</span>
+              </div>
+            )}
+
+            <FieldRow label="ยืนยันรหัสผ่านใหม่" fieldKey="confirmPassword" showKey="cf" placeholder="กรอกซ้ำอีกครั้ง" />
+
+            {form.confirmPassword && (
+              <div className={`cp-match ${form.newPassword === form.confirmPassword ? 'ok' : 'fail'}`}>
+                {form.newPassword === form.confirmPassword ? '✓ รหัสผ่านตรงกัน' : '✗ รหัสผ่านไม่ตรงกัน'}
+              </div>
+            )}
+
+            <button type="submit" className="cp-submit" disabled={loading}>
+              {loading ? <><span className="cp-spin"/>กำลังดำเนินการ...</> : 'เปลี่ยนรหัสผ่าน'}
             </button>
-          </div>
-        </section>
-      </main>
+          </form>
+        </div>
+      </div>
 
+      {/* Confirm Modal */}
       {showConfirm && (
-        <div className="modal-overlay" onClick={closeModals}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <h3>คุณต้องการเปลี่ยนรหัสผ่านหรือไม่?</h3>
-            <div className="modal-buttons">
-              <button type="button" className="cancel" onClick={closeModals}>
-                ยกเลิก
-              </button>
-              <button type="button" className="confirm" onClick={handleConfirmChange}>
-                ยืนยัน
-              </button>
+        <div className="cp-overlay">
+          <div className="cp-modal" onClick={e => e.stopPropagation()}>
+            <div className="cp-modal-emoji">🔑</div>
+            <h3 className="cp-modal-title">ยืนยันการเปลี่ยนรหัสผ่าน?</h3>
+            <p className="cp-modal-desc">รหัสผ่านเดิมจะถูกแทนที่ทันที</p>
+            <div className="cp-modal-btns">
+              <button className="cp-btn-ghost" onClick={() => setShowConfirm(false)}>ยกเลิก</button>
+              <button className="cp-btn-gold" onClick={handleConfirmChange}>ยืนยัน</button>
             </div>
           </div>
         </div>
       )}
 
+      {/* Success Modal */}
       {showSuccess && (
-        <div className="modal-overlay" onClick={closeModals}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <h3>เปลี่ยนรหัสผ่านสำเร็จแล้ว</h3>
-            <button className="confirm" onClick={closeModals}>
-              เสร็จสิ้น
-            </button>
+        <div className="cp-overlay">
+          <div className="cp-modal" onClick={e => e.stopPropagation()}>
+            <div className="cp-success-ring">
+              <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+            </div>
+            <h3 className="cp-modal-title">เปลี่ยนรหัสผ่านสำเร็จ!</h3>
+            <p className="cp-modal-desc">รหัสผ่านของคุณได้รับการอัปเดตแล้ว</p>
+            <button className="cp-btn-gold" style={{width:'100%'}}
+              onClick={() => { setShowSuccess(false); navigate(-1) }}>เสร็จสิ้น</button>
           </div>
         </div>
       )}

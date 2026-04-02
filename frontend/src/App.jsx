@@ -41,7 +41,7 @@ function App() {
         <Route path="/change-password" element={<ChangePasswordPage />} />
         <Route path="/booking/:chairId" element={<QueuesPage />} />
         <Route path="/notification" element={<Notification />} />
-        <Route path="/leave-detail" element={<LeaveDetailPage />} />
+        <Route path="/leave-detail/:id" element={<LeaveDetailPage />} />
         <Route path="/profile" element={<ProfilePage/>}  />
 
         {/* --- Role: CUSTOMER เท่านั้น --- */}
