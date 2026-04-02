@@ -1,23 +1,21 @@
 import { useNavigate } from "react-router-dom";
 import { useState, useContext, useEffect, useCallback } from "react";
 import { DataContext } from "../DataContext";
+import { FiCalendar, FiClock, FiUser, FiArrowLeft, FiTrash2, FiMapPin, FiAlertCircle } from "react-icons/fi";
 import "./style/ViewBookedPage.css";
 
 export default function BookedPage() {
     const navigate = useNavigate();
-    const { baseURL, user } = useContext(DataContext);
+    const { baseURL, fetchWithAuth } = useContext(DataContext);
     const [bookedQueues, setBookedQueues] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showCancelModal, setShowCancelModal] = useState(false);
     const [selectedCancelItem, setSelectedCancelItem] = useState(null);
 
-    // ✅ ดึงข้อมูลคิวที่จองไว้ของ User คนนี้จาก Backend
     const fetchMyBookedQueues = useCallback(async () => {
         setLoading(true);
         try {
-            const res = await fetch(`${baseURL}/queue_service/my-bookings`, {
-                headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` }
-            });
+            const res = await fetchWithAuth(`${baseURL}/queue_service/my-bookings`);
             if (res.ok) {
                 const data = await res.json();
                 setBookedQueues(data);
@@ -27,7 +25,7 @@ export default function BookedPage() {
         } finally {
             setLoading(false);
         }
-    }, [baseURL]);
+    }, [baseURL, fetchWithAuth]);
 
     useEffect(() => {
         fetchMyBookedQueues();
@@ -38,17 +36,14 @@ export default function BookedPage() {
         setShowCancelModal(true);
     };
 
-    // ✅ ฟังก์ชันกดยกเลิกคิว (ส่งไปที่ Backend)
     const confirmCancel = async () => {
         try {
-            const res = await fetch(`${baseURL}/queue_service/cancel-booking/${selectedCancelItem.id}`, {
+            const res = await fetchWithAuth(`${baseURL}/queue_service/cancel-booking/${selectedCancelItem.id}`, {
                 method: "DELETE",
-                headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` }
             });
 
             if (res.ok) {
-                // อัปเดต UI โดยดึงข้อมูลใหม่หรือกรองตัวที่ลบออก
-                setBookedQueues(bookedQueues.filter(q => q.id !== selectedCancelItem.id));
+                setBookedQueues(prev => prev.filter(q => q.id !== selectedCancelItem.id));
                 setShowCancelModal(false);
                 setSelectedCancelItem(null);
             } else {
@@ -59,76 +54,99 @@ export default function BookedPage() {
         }
     };
 
-    if (loading) return <div className="booked-loading">กำลังโหลดข้อมูลคิว...</div>;
+    if (loading) return (
+        <div className="vb-loader-wrapper">
+            <div className="vb-spinner"></div>
+            <p>กำลังเตรียมรายการจองของคุณ...</p>
+        </div>
+    );
 
     return (
-        <div className="view-booked-page">
-            <div className="top-actions">
-                <button className="back-arrow-btn" onClick={() => navigate(-1)}>
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                        <path d="M19 12H5M12 19l-7-7 7-7" />
-                    </svg>
+        <div className="vb-main-container">
+            {/* Header */}
+            <header className="vb-header">
+                <button className="vb-back-btn" onClick={() => navigate(-1)}>
+                    <FiArrowLeft size={24} />
                 </button>
-                <h1 className="page-main-title">การจองของฉัน</h1>
-            </div>
+                <div className="vb-header-title">
+                    <h1>การจองของฉัน</h1>
+                    <p>รายการนัดหมายตัดผมทั้งหมดของคุณ</p>
+                </div>
+            </header>
 
-            <div className="booked-content">
+            <main className="vb-content">
                 {bookedQueues.length === 0 ? (
-                    <div className="empty-state-box">
-                        <div className="empty-icon">📅</div>
-                        <h2 className="box-title">ไม่มีการจองคิว</h2>
-                        <p className="empty-message">คุณยังไม่มีคิวที่จองไว้ในขณะนี้</p>
-                        <button className="go-book-btn" onClick={() => navigate("/select-chair")}>จองคิวตอนนี้</button>
+                    <div className="vb-empty">
+                        <div className="vb-empty-icon"><FiCalendar size={60} /></div>
+                        <h2>ยังไม่มีการจองคิว</h2>
+                        <p>จองคิวตัดผมตอนนี้ เพื่อความสะดวกของคุณ</p>
+                        <button className="vb-btn-primary" onClick={() => navigate("/select-chair")}>
+                            เริ่มจองคิวครั้งแรก
+                        </button>
                     </div>
                 ) : (
-                    <div className="filled-state-box">
-                        <div className="booked-list">
-                            {bookedQueues.map((item) => (
-                                <div key={item.id} className="booked-card">
-                                    <div className="card-header">
-                                        <span className="chair-label">เก้าอี้ {item.chair_name || item.chair_id}</span>
-                                        <span className={`status-tag ${item.status.toLowerCase()}`}>
-                                            {item.status === "BOOKED" ? "จองแล้ว" : "รอดำเนินการ"}
-                                        </span>
+                    <div className="vb-list">
+                        {bookedQueues.map((item) => (
+                            <div key={item.id} className="vb-card">
+                                <div className="vb-card-top">
+                                    <div className="vb-chair-tag">
+                                        <FiMapPin size={14} />
+                                        <span>เก้าอี้ {item.chair_name || item.chair_id}</span>
                                     </div>
-                                    
-                                    <div className="booked-info">
-                                        <div className="info-row">
-                                            <span className="label">เวลา:</span>
-                                            <span className="value">{item.start_time.substring(0, 5)} - {item.end_time.substring(0, 5)} น.</span>
-                                        </div>
-                                        <div className="info-row">
-                                            <span className="label">ช่างตัดผม:</span>
-                                            <span className="value">{item.barber_name || "ไม่ระบุ"}</span>
-                                        </div>
-                                        <div className="info-row">
-                                            <span className="label">วันที่:</span>
-                                            <span className="value">{new Date(item.date_working).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                                    <div className={`vb-status-badge ${item.status.toLowerCase()}`}>
+                                        {item.status === "BOOKED" ? "จองสำเร็จ" : "กำลังดำเนินการ"}
+                                    </div>
+                                </div>
+
+                                <div className="vb-card-body">
+                                    <div className="vb-info-row">
+                                        <div className="vb-icon-circle"><FiClock /></div>
+                                        <div className="vb-info-text">
+                                            <label>เวลาให้บริการ</label>
+                                            <strong>{item.start_time.substring(0, 5)} - {item.end_time.substring(0, 5)} น.</strong>
                                         </div>
                                     </div>
 
-                                    <button className="btn-cancel-queue" onClick={() => handleCancelClick(item)}>
-                                        ยกเลิกคิวนี้
+                                    <div className="vb-info-row">
+                                        <div className="vb-icon-circle"><FiUser /></div>
+                                        <div className="vb-info-text">
+                                            <label>ช่างผู้ให้บริการ</label>
+                                            <strong>{item.barber_name || "ช่างประจำร้าน"}</strong>
+                                        </div>
+                                    </div>
+
+                                    <div className="vb-info-row">
+                                        <div className="vb-icon-circle"><FiCalendar /></div>
+                                        <div className="vb-info-text">
+                                            <label>วันที่นัดหมาย</label>
+                                            <strong>{new Date(item.date_working).toLocaleDateString('th-TH', { 
+                                                day: 'numeric', month: 'long', year: 'numeric' 
+                                            })}</strong>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="vb-card-footer">
+                                    <button className="vb-cancel-btn" onClick={() => handleCancelClick(item)}>
+                                        <FiTrash2 /> ยกเลิกการจองนี้
                                     </button>
                                 </div>
-                            ))}
-                        </div>
+                            </div>
+                        ))}
                     </div>
                 )}
-            </div>
+            </main>
 
             {/* Cancel Modal */}
             {showCancelModal && (
-                <div className="modal-overlay">
-                    <div className="cancel-modal">
-                        <h3 className="modal-title">ยืนยันการยกเลิกคิว?</h3>
-                        <div className="modal-details">
-                            <p>เก้าอี้ {selectedCancelItem.chair_name}</p>
-                            <p>เวลา {selectedCancelItem.start_time.substring(0, 5)} น.</p>
-                        </div>
-                        <div className="modal-actions-center">
-                            <button className="btn-no" onClick={() => setShowCancelModal(false)}>ไม่ เปลี่ยนใจ</button>
-                            <button className="btn-confirm-cancel" onClick={confirmCancel}>ยืนยัน ยกเลิกคิว</button>
+                <div className="vb-modal-overlay">
+                    <div className="vb-modal">
+                        <div className="vb-modal-alert-icon"><FiAlertCircle size={40} /></div>
+                        <h3>ยืนยันการยกเลิก</h3>
+                        <p>คุณต้องการยกเลิกการจองเวลา <strong>{selectedCancelItem?.start_time.substring(0, 5)} น.</strong> หรือไม่? การกระทำนี้ไม่สามารถย้อนกลับได้</p>
+                        <div className="vb-modal-actions">
+                            <button className="vb-btn-back" onClick={() => setShowCancelModal(false)}>ย้อนกลับ</button>
+                            <button className="vb-btn-confirm-delete" onClick={confirmCancel}>ใช่, ยกเลิกการจอง</button>
                         </div>
                     </div>
                 </div>

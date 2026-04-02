@@ -5,34 +5,30 @@ import "./style/Home.css";
 
 export default function Home() {
     const navigate = useNavigate();
-    
-    // ดึง authLoading มาเช็คด้วย เพื่อไม่ให้ปุ่มกระพริบตอนกำลังโหลด
     const { islogin, role, heroSlides, promoSlides, announcementText, baseURL, authLoading } = useContext(DataContext) || {};
 
-    const getImgUrl = (imgData, fallback) => {
-        if (!imgData) return fallback;
-        if (typeof imgData === "string") return imgData; 
-        return `${baseURL}/${imgData.path_img}`; 
-    };
-
+    // 1. จัดการ Banner (Hero Slides) - สไลด์อัตโนมัติ
     const [currHero, setCurrHero] = useState(0);
-    const [currPromo, setCurrPromo] = useState(0);
-
-    const safeHeros = useMemo(() => heroSlides?.length > 0 ? heroSlides : ["/images/slide1.jpg"], [heroSlides]);
-    const safePromos = useMemo(() => promoSlides?.length > 0 ? promoSlides : ["/images/slide2.jpg"], [promoSlides]);
+    const safeHeros = useMemo(() => heroSlides?.length > 0 ? heroSlides : [{path_img: "default-hero.jpg"}], [heroSlides]);
 
     useEffect(() => {
-        const hInt = setInterval(() => setCurrHero(p => (p + 1) % safeHeros.length), 5000);
-        const pInt = setInterval(() => setCurrPromo(p => (p + 1) % safePromos.length), 4000);
-        return () => { clearInterval(hInt); clearInterval(pInt); };
-    }, [safeHeros, safePromos]);
+        const hInt = setInterval(() => {
+            setCurrHero(p => (p + 1) % safeHeros.length);
+        }, 5000);
+        return () => clearInterval(hInt);
+    }, [safeHeros]);
 
-    // 🔴 ฟังก์ชันคำนวณ Path สำหรับปุ่มจองคิว
+    // 2. จัดการภาพโปรโมชั่น (Promo Slides) - สุ่มภาพเมื่อ Reload
+    const randomPromo = useMemo(() => {
+        if (!promoSlides || promoSlides.length === 0) return null;
+        const randomIndex = Math.floor(Math.random() * promoSlides.length);
+        return promoSlides[randomIndex];
+    }, [promoSlides]); // จะทำงานใหม่เมื่อ promoSlides เปลี่ยน (หรือ reload หน้า)
+
     const handleBookingClick = () => {
         if (!islogin) {
             navigate('/login');
         } else {
-            // เช็ค Role ให้ชัดเจน
             if (role === 'OWNER' || role === 'BARBER') {
                 navigate('/working-table');
             } else {
@@ -41,27 +37,61 @@ export default function Home() {
         }
     };
 
-    // ถ้ายังโหลด Auth ไม่เสร็จ อาจจะโชว์ Loading หรือไม่โชว์ปุ่มก่อน
     if (authLoading) return <div className="loading-screen">กำลังโหลด...</div>;
 
     return (
         <div className="home-container">
-            {/* ... ส่วน Hero ... */}
-            
-            <section className="promo-section">
-                <div className="promo-display-container">
-                    {/* ... ส่วนรูป Promo ... */}
-                    
-                    {/* เปลี่ยนการเรียก navigate ตรงๆ มาใช้ handleBookingClick */}
-                    <button onClick={handleBookingClick} className="btn-main-booking">
-                        <span className="btn-text-main">
-                            {islogin ? "จัดการระบบ/จองคิว" : "เข้าสู่ระบบเพื่อจองคิว"}
-                        </span>
-                    </button>
+            {/* ส่วนที่ 1: Hero Banner (Auto Slide) */}
+            <header className="hero-section">
+                {safeHeros.map((slide, idx) => (
+                    <div 
+                        key={slide.id || idx} 
+                        className={`hero-slide ${idx === currHero ? "active" : ""}`}
+                        style={{ backgroundImage: `url(${baseURL}/${slide.path_img})` }}
+                    >
+                        <div className="hero-overlay">
+                            <h1 className="hero-title">Sharp Looks, Modern Style</h1>
+                        </div>
+                    </div>
+                ))}
+                <div className="hero-dots">
+                    {safeHeros.map((_, idx) => (
+                        <span key={idx} className={`dot ${idx === currHero ? "active" : ""}`} />
+                    ))}
+                </div>
+            </header>
+
+            {/* ส่วนที่ 2: Announcement (คำบรรยาย) */}
+            <section className="announcement-section">
+                <div className="content-wrapper">
+                    <h2 className="section-label">ประกาศจากทางร้าน</h2>
+                    <div 
+                        className="description-text"
+                        dangerouslySetInnerHTML={{ __html: announcementText || "ยินดีต้อนรับสู่ Barber Shop" }} 
+                    />
                 </div>
             </section>
 
-            {/* ... ส่วน Description ... */}
+            {/* ส่วนที่ 3: Promo Display (สุ่มภาพสลับ) */}
+            <section className="promo-section">
+                <div className="promo-card">
+                    {randomPromo ? (
+                        <img 
+                            src={`${baseURL}/${randomPromo.path_img}`} 
+                            alt="Promotion" 
+                            className="promo-img-main"
+                        />
+                    ) : (
+                        <div className="promo-placeholder">Barber Shop Service</div>
+                    )}
+                    
+                    <div className="promo-action">
+                        <button onClick={handleBookingClick} className="btn-main-booking">
+                            {islogin ? "จองคิวตอนนี้" : "เข้าสู่ระบบเพื่อจองคิว"}
+                        </button>
+                    </div>
+                </div>
+            </section>
         </div>
     );
 }

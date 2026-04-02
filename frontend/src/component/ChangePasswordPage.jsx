@@ -1,9 +1,9 @@
-import { useNavigate } from "react-router-dom"
-import { useState, useContext } from "react"
-import { DataContext } from "../DataContext"
-import "./style/ChangePasswordPage.css"
+import { useNavigate } from "react-router-dom";
+import { useState, useContext } from "react";
+import { DataContext } from "../DataContext";
+import "./style/ChangePasswordPage.css";
 
-// --- ย้าย EyeIcon ออกมาข้างนอกเพื่อป้องกัน Re-creation ---
+// --- EyeIcon: ไอคอนลูกตาสำหรับเปิด/ปิดการมองเห็นรหัสผ่าน ---
 const EyeIcon = ({ open }) => (
   <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     {open
@@ -11,9 +11,9 @@ const EyeIcon = ({ open }) => (
       : <><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></>
     }
   </svg>
-)
+);
 
-// --- ย้าย FieldRow ออกมานอก Component หลัก (สำคัญมาก: แก้ Bug พิมพ์ได้ตัวเดียว) ---
+// --- FieldRow: ส่วนประกอบของ Input แต่ละแถว ---
 const FieldRow = ({ label, fieldKey, showKey, placeholder, value, onChange, showStatus, onToggleShow }) => (
   <div className="cp-field">
     <label className="cp-label">{label}</label>
@@ -26,81 +26,93 @@ const FieldRow = ({ label, fieldKey, showKey, placeholder, value, onChange, show
         onChange={e => onChange(fieldKey, e.target.value)}
         placeholder={placeholder}
       />
-      <button type="button" className="cp-eye"
-        onClick={() => onToggleShow(showKey)}>
+      <button type="button" className="cp-eye" onClick={() => onToggleShow(showKey)}>
         <EyeIcon open={showStatus} />
       </button>
     </div>
   </div>
-)
+);
 
 export default function ChangePasswordPage() {
-  const navigate = useNavigate()
-  const { baseURL } = useContext(DataContext)
+  const navigate = useNavigate();
+  const { baseURL, fetchWithAuth } = useContext(DataContext);
 
-  const [form, setForm] = useState({ currentPassword: "", newPassword: "", confirmPassword: "" })
-  const [showConfirm, setShowConfirm] = useState(false)
-  const [showSuccess, setShowSuccess] = useState(false)
-  const [errorMsg, setErrorMsg] = useState("")
-  const [loading, setLoading] = useState(false)
-  const [show, setShow] = useState({ cur: false, nw: false, cf: false })
+  const [form, setForm] = useState({ currentPassword: "", newPassword: "", confirmPassword: "" });
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [show, setShow] = useState({ cur: false, nw: false, cf: false });
+
+  // ✅ Validation Logic: ตรวจสอบเงื่อนไข 8 ตัวอักษรและรหัสผ่านตรงกัน
+  const isPasswordShort = form.newPassword.length > 0 && form.newPassword.length < 8;
+  const isMismatch = form.confirmPassword.length > 0 && form.newPassword !== form.confirmPassword;
+  const isInvalid = form.newPassword.length < 8 || isMismatch || !form.currentPassword;
 
   const handleChange = (field, value) => {
-    if (errorMsg) setErrorMsg("")
-    setForm(prev => ({ ...prev, [field]: value }))
-  }
+    if (errorMsg) setErrorMsg("");
+    setForm(prev => ({ ...prev, [field]: value }));
+  };
 
   const toggleShow = (key) => {
-    setShow(prev => ({ ...prev, [key]: !prev[key] }))
-  }
+    setShow(prev => ({ ...prev, [key]: !prev[key] }));
+  };
 
+  // คำนวณความแข็งแกร่งของรหัสผ่าน
   const strength = (pw) => {
-    if (!pw) return 0
-    let s = 0
-    if (pw.length >= 8)           s++
-    if (/[A-Z]/.test(pw))         s++
-    if (/[0-9]/.test(pw))         s++
-    if (/[^A-Za-z0-9]/.test(pw))  s++
-    return s
-  }
+    if (!pw) return 0;
+    let s = 0;
+    if (pw.length >= 8) s++;
+    if (/[A-Z]/.test(pw)) s++;
+    if (/[0-9]/.test(pw)) s++;
+    if (/[^A-Za-z0-9]/.test(pw)) s++;
+    return s;
+  };
 
-  const pwStrength = strength(form.newPassword)
-  const strengthLabel = ["", "อ่อน", "พอใช้", "ดี", "แข็งแกร่ง"][pwStrength]
-  const strengthColor = ["", "#e07b54", "#e8b84b", "#6dbf8c", "#5b9bd5"][pwStrength]
+  const pwStrength = strength(form.newPassword);
+  const strengthLabel = ["", "อ่อน", "พอใช้", "ดี", "แข็งแกร่ง"][pwStrength];
+  const strengthColor = ["", "#e07b54", "#e8b84b", "#6dbf8c", "#5b9bd5"][pwStrength];
 
   const handleSubmit = (e) => {
-    e.preventDefault()
-    if (form.newPassword.length < 8) { setErrorMsg("รหัสผ่านใหม่ต้องมีอย่างน้อย 8 ตัวอักษร"); return }
-    if (form.newPassword !== form.confirmPassword) { setErrorMsg("รหัสผ่านใหม่ไม่ตรงกัน"); return }
-    setShowConfirm(true)
-  }
+    e.preventDefault();
+    if (form.newPassword.length < 8) {
+      setErrorMsg("รหัสผ่านใหม่ต้องมีอย่างน้อย 8 ตัวอักษร");
+      return;
+    }
+    if (form.newPassword !== form.confirmPassword) {
+      setErrorMsg("รหัสผ่านใหม่ไม่ตรงกัน");
+      return;
+    }
+    setShowConfirm(true);
+  };
 
   const handleConfirmChange = async () => {
-    setShowConfirm(false)
-    setLoading(true)
-    setErrorMsg("")
+    setShowConfirm(false);
+    setLoading(true);
+    setErrorMsg("");
     try {
-      const res = await fetch(`${baseURL}/auth/change_password`, {
+      // ✅ ใช้ fetchWithAuth เพื่อความเสถียรของ Token
+      const res = await fetchWithAuth(`${baseURL}/auth/change_password`, {
         method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${localStorage.getItem("token")}`
-        },
-        body: JSON.stringify({ old_password: form.currentPassword, new_password: form.newPassword })
-      })
-      const data = await res.json()
+        body: JSON.stringify({ 
+          old_password: form.currentPassword, 
+          new_password: form.newPassword 
+        })
+      });
+
+      const data = await res.json();
       if (res.ok) {
-        setShowSuccess(true)
-        setForm({ currentPassword: "", newPassword: "", confirmPassword: "" })
+        setShowSuccess(true);
+        setForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
       } else {
-        setErrorMsg(data.detail || "เกิดข้อผิดพลาด")
+        setErrorMsg(data.detail || "เกิดข้อผิดพลาด");
       }
     } catch {
-      setErrorMsg("ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้")
+      setErrorMsg("ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   return (
     <div className="cp-page">
@@ -141,17 +153,19 @@ export default function ChangePasswordPage() {
               showStatus={show.cur}
               onToggleShow={toggleShow}
             />
+
             <FieldRow 
               label="รหัสผ่านใหม่" 
               fieldKey="newPassword" 
               showKey="nw" 
-              placeholder="อย่างน้อย 8 ตัวอักษร" 
+              placeholder="ต้องมีอย่างน้อย 8 ตัวอักษร" 
               value={form.newPassword}
               onChange={handleChange}
               showStatus={show.nw}
               onToggleShow={toggleShow}
             />
 
+            {/* ✅ แสดงแถบความแข็งแกร่งและแจ้งเตือนเรื่อง 8 ตัวอักษร */}
             {form.newPassword && (
               <div className="cp-strength-wrap">
                 <div className="cp-bars">
@@ -160,7 +174,10 @@ export default function ChangePasswordPage() {
                       style={{ background: i <= pwStrength ? strengthColor : 'var(--sand)' }} />
                   ))}
                 </div>
-                <span className="cp-strength-lbl" style={{ color: strengthColor }}>{strengthLabel}</span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '4px' }}>
+                  <span className="cp-strength-lbl" style={{ color: strengthColor }}>{strengthLabel}</span>
+                  {isPasswordShort && <span style={{ color: '#e07b54', fontSize: '12px' }}>* ต่ำกว่า 8 ตัวอักษร</span>}
+                </div>
               </div>
             )}
 
@@ -181,14 +198,25 @@ export default function ChangePasswordPage() {
               </div>
             )}
 
-            <button type="submit" className="cp-submit" disabled={loading}>
-              {loading ? <><span className="cp-spin"/>กำลังดำเนินการ...</> : 'เปลี่ยนรหัสผ่าน'}
+            {/* ✅ ปุ่ม Submit จะถูก Disable จนกว่าเงื่อนไขจะครบ */}
+            <button 
+              type="submit" 
+              className={`cp-submit ${isInvalid ? 'cp-disabled' : ''}`} 
+              disabled={loading || isInvalid}
+            >
+              {loading ? (
+                <><span className="cp-spin"/>กำลังดำเนินการ...</>
+              ) : isInvalid && form.newPassword ? (
+                'ข้อมูลยังไม่ถูกต้อง'
+              ) : (
+                'เปลี่ยนรหัสผ่าน'
+              )}
             </button>
           </form>
         </div>
       </div>
 
-      {/* Modal Confirm & Success คงเดิม */}
+      {/* --- Modal ยืนยัน --- */}
       {showConfirm && (
         <div className="cp-overlay" onClick={() => setShowConfirm(false)}>
           <div className="cp-modal" onClick={e => e.stopPropagation()}>
@@ -203,6 +231,7 @@ export default function ChangePasswordPage() {
         </div>
       )}
 
+      {/* --- Modal สำเร็จ --- */}
       {showSuccess && (
         <div className="cp-overlay">
           <div className="cp-modal">
@@ -219,5 +248,5 @@ export default function ChangePasswordPage() {
         </div>
       )}
     </div>
-  )
+  );
 }

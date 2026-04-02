@@ -1,6 +1,7 @@
 import { useNavigate, useParams } from "react-router-dom";
 import { useState, useEffect, useContext, useCallback } from "react";
 import { DataContext } from "../DataContext";
+import { FiClock, FiCheck, FiChevronLeft, FiInfo, FiZap, FiAlertCircle } from "react-icons/fi";
 import "./style/QueuesPage.css";
 
 export default function QueuesPage() {
@@ -15,23 +16,7 @@ export default function QueuesPage() {
     const [bookingRef, setBookingRef] = useState("");
     const [loading, setLoading] = useState(true);
 
-    /**
-     * ✅ Logic คำนวณสถานะคิว (Available / No-Show / Booked / Check-in / Complete)
-     */
-    const getCalculatedStatus = (q) => {
-        const now = new Date();
-        const [hours, minutes] = q.start_time.split(':');
-        const queueStartTime = new Date();
-        queueStartTime.setHours(parseInt(hours), parseInt(minutes), 0);
-        
-        const diffMinutes = (now - queueStartTime) / (1000 * 60);
-
-        if (q.status === "COMPLETE" || q.status === "CHECKIN") return q.status;
-        if (diffMinutes > 15 && (q.status === "AVAILABLE" || q.status === "BOOKED")) return "NO_SHOW";
-
-        return q.status;
-    };
-
+    // ดึงข้อมูลคิว (Backend จะคำนวณ NO_SHOW มาให้แล้ว)
     const fetchQueues = useCallback(async () => {
         try {
             const res = await fetch(`${baseURL}/queue_service/queues?chair_id=${chairId}`);
@@ -48,28 +33,20 @@ export default function QueuesPage() {
 
     useEffect(() => {
         fetchQueues();
-        const interval = setInterval(fetchQueues, 30000);
+        const interval = setInterval(fetchQueues, 30000); // Auto-refresh ทุก 30 วิ
         return () => clearInterval(interval);
     }, [fetchQueues]);
 
-    /**
-     * ✅ ฟังก์ชันจัดการการคลิกจอง (ตรวจสอบสิทธิ์)
-     */
     const handleBookingClick = (queue) => {
-        // 1. ตรวจสอบว่า Login หรือยัง
         if (!user) {
             alert("กรุณาเข้าสู่ระบบก่อนทำการจองคิว");
-            navigate("/login"); // ส่งไปหน้า Login
+            navigate("/login");
             return;
         }
-
-        // 2. ตรวจสอบ Role ว่าเป็น CUSTOMER หรือไม่
         if (user.rolestatus !== "CUSTOMER") {
-            alert("ขออภัย เฉพาะบัญชีลูกค้าเท่านั้นที่สามารถจองคิวได้");
+            alert("เฉพาะลูกค้าเท่านั้นที่สามารถจองคิวได้");
             return;
         }
-
-        // 3. ถ้าผ่านเงื่อนไข ให้เปิด Modal ยืนยัน
         setSelectedQueue(queue);
         setShowConfirm(true);
     };
@@ -89,79 +66,75 @@ export default function QueuesPage() {
                 setBookingRef(`Q-${result.id}`); 
                 setShowConfirm(false);
                 setShowSuccess(true);
+                fetchQueues();
             } else {
                 const errData = await res.json();
                 alert(errData.detail || "การจองล้มเหลว");
-                fetchQueues();
             }
         } catch (err) {
             alert("เชื่อมต่อเซิร์ฟเวอร์ไม่ได้");
         }
     };
 
-    if (loading) return <div className="q-loading-simple">กำลังโหลด...</div>;
+    if (loading) return <div className="pq-loader">กำลังโหลดตารางเวลา...</div>;
 
     return (
-        <div className="q-modern-layout">
-            <div className="q-card-main">
-                {/* Header */}
-                <div className="q-header-nav">
-                    <button className="q-back-btn-minimal" onClick={() => navigate(-1)}>
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                            <path d="M15 18l-6-6 6-6" />
-                        </svg>
-                    </button>
-                    <div className="q-title-group">
-                        <h2>เลือกเวลาจองคิว</h2>
-                        <p>เก้าอี้ {chairId} • {new Date().toLocaleDateString('th-TH', { month: 'long', day: 'numeric' })}</p>
-                    </div>
+        <div className="pq-main-bg">
+            <header className="pq-glass-header">
+                <button className="pq-back-btn" onClick={() => navigate(-1)}><FiChevronLeft size={24} /></button>
+                <div className="pq-title-wrapper">
+                    <h1>เลือกช่วงเวลา</h1>
+                    <p>เก้าอี้บริการ #{chairId} • วันนี้</p>
                 </div>
+            </header>
 
-                {/* Slots List */}
-                <div className="q-slots-grid">
-                    {queues.map((q) => {
-                        const currentStatus = getCalculatedStatus(q);
-                        const isAvailable = currentStatus === "AVAILABLE";
+            <div className="pq-timeline-container">
+                {queues.map((q) => {
+                    const isMine = user && q.customer_id === user.id;
+                    const status = q.status;
 
-                        return (
-                            <div key={q.id} className={`q-slot-item status-${currentStatus.toLowerCase()}`}>
-                                <div className="q-time-info">
-                                    <span className="q-time-text">{q.start_time.substring(0, 5)} - {q.end_time.substring(0, 5)}</span>
-                                    <span className="q-unit">น.</span>
-                                </div>
-
-                                <div className="q-status-action">
-                                    {isAvailable ? (
-                                        <button className="q-btn-book" onClick={() => handleBookingClick(q)}>
-                                            จองคิว
-                                        </button>
-                                    ) : (
-                                        <div className={`q-badge badge-${currentStatus.toLowerCase()}`}>
-                                            {currentStatus === "BOOKED" && "จองแล้ว"}
-                                            {currentStatus === "NO_SHOW" && "เลยเวลา/ไม่มา"}
-                                            {currentStatus === "CHECKIN" && "กำลังรับบริการ"}
-                                            {currentStatus === "COMPLETE" && "เสร็จสิ้น"}
-                                        </div>
-                                    )}
-                                </div>
+                    return (
+                        <div key={q.id} className={`pq-time-card st-${status.toLowerCase()} ${isMine ? 'is-mine animate-pulse' : ''}`}>
+                            <div className="pq-time-side">
+                                <span className="pq-start">{q.start_time.substring(0, 5)}</span>
+                                <div className="pq-line"></div>
+                                <span className="pq-end">{q.end_time.substring(0, 5)}</span>
                             </div>
-                        );
-                    })}
-                </div>
+
+                            <div className="pq-content-side">
+                                {isMine ? (
+                                    <div className="pq-mine-info">
+                                        <div className="pq-badge-mine"><FiCheck /> คิวของคุณ</div>
+                                        <p>คุณมีนัดหมายเวลานี้</p>
+                                    </div>
+                                ) : status === "AVAILABLE" ? (
+                                    <div className="pq-avail-info">
+                                        <span className="pq-label-avail">ว่าง</span>
+                                        <button className="pq-btn-select" onClick={() => handleBookingClick(q)}>
+                                            <FiZap /> จองเลย
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <span className={`pq-status-tag ${status.toLowerCase()}`}>
+                                        {status === "BOOKED" ? "มีผู้จองแล้ว" : status === "NO_SHOW" ? "หมดเวลา" : status}
+                                    </span>
+                                )}
+                            </div>
+                        </div>
+                    );
+                })}
             </div>
 
             {/* Modal ยืนยันการจอง */}
             {showConfirm && (
-                <div className="q-overlay">
-                    <div className="q-modal">
-                        <h3>ยืนยันการจองคิว</h3>
-                        <div className="q-modal-detail">
-                            <p>รอบเวลา: <strong>{selectedQueue?.start_time.substring(0, 5)} - {selectedQueue?.end_time.substring(0, 5)} น.</strong></p>
-                            <span>* โปรดมาถึงก่อนเวลา 5-10 นาที</span>
-                        </div>
-                        <div className="q-modal-btns">
-                            <button className="q-btn-cancel" onClick={() => setShowConfirm(false)}>ยกเลิก</button>
-                            <button className="q-btn-confirm" onClick={confirmBooking}>ยืนยันการจอง</button>
+                <div className="pq-modal-overlay">
+                    <div className="pq-modal-card">
+                        <FiAlertCircle size={40} color="#3b82f6" />
+                        <h2>ยืนยันนัดหมาย?</h2>
+                        <p>เวลา <strong>{selectedQueue?.start_time} น.</strong></p>
+                        <div className="pq-modal-btns">
+                            <button className="pq-btn-no" onClick={() => setShowConfirm(false)}>ยกเลิก</button>
+                            <button className="pq-btn-yes" onClick={confirmBooking}>ยืนยัน</button>
                         </div>
                     </div>
                 </div>
@@ -169,12 +142,12 @@ export default function QueuesPage() {
 
             {/* Modal สำเร็จ */}
             {showSuccess && (
-                <div className="q-overlay">
-                    <div className="q-modal q-modal-success">
-                        <div className="q-success-icon">✓</div>
-                        <h3>จองคิวสำเร็จ</h3>
-                        <p>รหัสอ้างอิง: <strong>{bookingRef}</strong></p>
-                        <button className="q-btn-done" onClick={() => navigate("/booked-table")}>ดูคิวของฉัน</button>
+                <div className="pq-modal-overlay">
+                    <div className="pq-modal-card pq-success">
+                        <div className="pq-success-icon">✓</div>
+                        <h2>จองสำเร็จ!</h2>
+                        <p>รหัสคิว: {bookingRef}</p>
+                        <button className="pq-btn-finish" onClick={() => navigate("/booked-table")}>ดูคิวของฉัน</button>
                     </div>
                 </div>
             )}

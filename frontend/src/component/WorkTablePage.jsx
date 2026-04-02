@@ -1,262 +1,160 @@
-import { useNavigate } from "react-router-dom"
-import { useState, useContext, useEffect, useCallback, useMemo } from "react"
-import { DataContext } from "../DataContext"
-import "./style/WorkingTablePage.css"
+import { useState, useEffect, useContext, useCallback } from "react";
+import { DataContext } from "../DataContext";
+import "./style/WorkingTablePage.css";
 
 const STATUS_META = {
-  AVAILABLE: { label: "ว่าง",        color: "#6DBF8C", bg: "rgba(109,191,140,.14)", dot: "#6DBF8C" },
-  BOOKED:    { label: "จองแล้ว",     color: "#5B9BD5", bg: "rgba(91,155,213,.13)",  dot: "#5B9BD5" },
-  CHECKIN:   { label: "กำลังบริการ", color: "#E8B84B", bg: "rgba(232,184,75,.14)",  dot: "#E8B84B" },
-  COMPLETE:  { label: "เสร็จสิ้น",   color: "#A78BFA", bg: "rgba(167,139,250,.12)", dot: "#A78BFA" },
-  CANCELLED: { label: "ยกเลิก",      color: "#E07B54", bg: "rgba(224,123,84,.12)",  dot: "#E07B54" },
-  NO_SHOW:   { label: "ไม่มา",       color: "#aaa",    bg: "rgba(170,170,170,.1)",  dot: "#aaa" },
-  EXPIRED:   { label: "เลยเวลา",     color: "#999",    bg: "#f0f0f0",               dot: "#ccc" },
-}
-
-function fmtTime(t) { return t ? t.substring(0, 5) : "--:--" }
-function fmtDate(d) {
-  if (!d) return ""
-  return new Date(d + "T00:00:00").toLocaleDateString("th-TH", {
-    weekday: "short", day: "numeric", month: "short", year: "numeric"
-  })
-}
-
-// ปรับให้ยืดหยุ่นขึ้น: คิวที่ผ่านมาไม่เกิน 15 นาที ยังไม่ถือว่า Expired สำหรับช่าง
-const checkIsPast = (startTime) => {
-  if (!startTime) return false;
-  const [h, m] = startTime.split(':').map(Number);
-  const now = new Date();
-  const qTime = new Date();
-  qTime.setHours(h, m, 0, 0);
-  
-  // ถ้าเวลาปัจจุบัน เลยเวลาคิวไปมากกว่า 15 นาที ถึงจะล็อค
-  const bufferTime = 15 * 60 * 1000; 
-  return now.getTime() > (qTime.getTime() + bufferTime);
+    AVAILABLE: { label: "ว่าง", color: "#22c55e", bg: "rgba(34, 197, 94, 0.1)", dot: "#22c55e" },
+    BOOKED:    { label: "จองออนไลน์", color: "#3b82f6", bg: "rgba(59, 130, 246, 0.1)", dot: "#3b82f6" },
+    CHECKIN:   { label: "กำลังบริการ", color: "#f59e0b", bg: "rgba(245, 158, 11, 0.1)", dot: "#f59e0b" },
+    COMPLETE:  { label: "เสร็จสิ้น", color: "#a855f7", bg: "rgba(168, 85, 247, 0.1)", dot: "#a855f7" },
+    NO_SHOW:   { label: "ไม่มา/ปิดคิว", color: "#94a3b8", bg: "rgba(148, 163, 184, 0.1)", dot: "#94a3b8" },
 };
 
-function ConfirmModal({ data, onClose, onConfirm, loading }) {
-  if (!data) return null;
-  return (
-    <div className="wt-overlay" onClick={() => !loading && onClose()}>
-      <div className="wt-modal" onClick={e => e.stopPropagation()}>
-        {data.icon && <div className="wt-modal-emoji">{data.icon}</div>}
-        <h3 className="wt-modal-title">{data.title}</h3>
-        {data.desc && <p className="wt-modal-desc">{data.desc}</p>}
-        <div className="wt-modal-btns">
-          <button className="wt-btn-ghost" onClick={onClose} disabled={loading}>ยกเลิก</button>
-          <button className={`wt-btn-action ${data.danger ? "danger" : ""}`}
-            onClick={onConfirm} disabled={loading}>
-            {loading && <span className="wt-spin"/>}
-            {data.confirmLabel}
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
 export default function WorkTablePage() {
-  const navigate = useNavigate()
-  const { baseURL } = useContext(DataContext)
+    const { baseURL, fetchWithAuth, userData } = useContext(DataContext);
+    const [workData, setWorkData] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+    const [actionLoading, setActionLoading] = useState(false);
 
-  const [queues,      setQueues]    = useState([])
-  const [chairInfo,   setChairInfo] = useState(null)
-  const [userInfo,    setUserInfo]  = useState(null)
-  const [loading,     setLoading]   = useState(true)
-  const [error,       setError]     = useState("")
-  const [actionLoading, setAL]     = useState(false)
-  const [modal,       setModal]     = useState(null)
-  const [toast,       setToast]     = useState(null)
+    // 1. ฟังก์ชันดึงข้อมูลตารางงาน (เช็คสถานะร้าน + คิวของช่าง)
+    const fetchMyTable = useCallback(async () => {
+        try {
+            const res = await fetchWithAuth(`${baseURL}/queue_service/my-work-table`);
+            if (res.ok) {
+                const data = await res.json();
+                setWorkData(data);
+                setError(null);
+            } else {
+                const errData = await res.json();
+                setError(errData.detail || "เกิดข้อผิดพลาดในการโหลดข้อมูล");
+            }
+        } catch (err) {
+            setError("เชื่อมต่อเซิร์ฟเวอร์ล้มเหลว");
+        } finally {
+            setLoading(false);
+        }
+    }, [baseURL, fetchWithAuth]);
 
-  const today = useMemo(() => new Date().toISOString().split("T")[0], [])
-  const token = localStorage.getItem("token")
-  const headers = useMemo(() => ({ 
-    Authorization: `Bearer ${token}`,
-    "Content-Type": "application/json"
-  }), [token])
+    useEffect(() => {
+        fetchMyTable();
+        const timer = setInterval(fetchMyTable, 60000); // Auto-refresh ทุก 1 นาที
+        return () => clearInterval(timer);
+    }, [fetchMyTable]);
 
-  const showToast = (msg, ok = true) => {
-    setToast({ msg, ok })
-    setTimeout(() => setToast(null), 2800)
-  }
-
-  const fetchData = useCallback(async () => {
-    setLoading(true); setError("")
-    try {
-      const userRes = await fetch(`${baseURL}/auth/profile`, { headers })
-      if (!userRes.ok) throw new Error("ยืนยันตัวตนไม่สำเร็จ")
-      const userData = await userRes.json()
-      setUserInfo(userData)
-
-      const chairRes = await fetch(`${baseURL}/queue_service/chairs?dateshop=${today}`, { headers })
-      if (!chairRes.ok) throw new Error("โหลดข้อมูลเก้าอี้ไม่สำเร็จ")
-      const chairData = await chairRes.json()
-      
-      const myChair = chairData.chairs.find(c => 
-        c.barber_name === userData.firstname || 
-        c.barber_name === userData.username
-      ) || chairData.chairs[0];
-      
-      setChairInfo(myChair)
-
-      const qRes = await fetch(`${baseURL}/queue_service/queues?chair_id=${myChair.id}&dateshop=${today}`, { headers })
-      if (!qRes.ok) throw new Error("โหลดข้อมูลคิวไม่สำเร็จ")
-      const qData = await qRes.json()
-      // เรียงคิวตามเวลา
-      setQueues(qData.sort((a, b) => a.start_time.localeCompare(b.start_time)))
-    } catch (e) { 
-      setError(e.message) 
-    } finally { 
-      setLoading(false) 
-    }
-  }, [baseURL, today, headers])
-
-  useEffect(() => { if (baseURL) fetchData() }, [fetchData])
-
-  const doAction = async (endpoint, method = "POST") => {
-    setAL(true)
-    try {
-      const res = await fetch(`${baseURL}${endpoint}`, { method, headers })
-      const d = await res.json()
-      if (!res.ok) throw new Error(d.detail || "เกิดข้อผิดพลาด")
-      showToast(d.message || "อัปเดตสำเร็จ")
-      fetchData() // รีโหลดข้อมูลใหม่
-    } catch (e) { 
-      showToast(e.message, false) 
-    } finally { 
-      setAL(false); 
-      setModal(null) 
-    }
-  }
-
-  // --- Modal Actions (ตรวจสอบ Endpoint กับ Backend ของคุณอีกครั้ง) ---
-  const openWalkin = (q) => setModal({
-    icon: "🚶", title: "เปิดคิว Walk-In", desc: `เริ่มบริการลูกค้าทันที รอบเวลา ${fmtTime(q.start_time)}`,
-    confirmLabel: "เริ่มงาน",
-    // บาง Backend ใช้ /walkin แทน /checkin สำหรับคิวที่ยังว่าง
-    onConfirm: () => doAction(`/queue_service/chairs/${chairInfo.id}/queues/${q.id}/walkin`)
-  })
-
-  const openCheckin = (q) => setModal({
-    icon: "✅", title: "ยืนยันเช็คอิน", desc: `ลูกค้าคิว ${fmtTime(q.start_time)} มาถึงแล้วใช่หรือไม่?`,
-    confirmLabel: "เช็คอิน",
-    onConfirm: () => doAction(`/queue_service/chairs/${chairInfo.id}/queues/${q.id}/checkin`)
-  })
-
-  const openComplete = (q) => setModal({
-    icon: "🎉", title: "เสร็จสิ้นบริการ", desc: "ตัดผมเสร็จเรียบร้อยและต้องการปิดคิวนี้ใช่หรือไม่?",
-    confirmLabel: "ปิดงาน",
-    onConfirm: () => doAction(`/queue_service/chairs/${chairInfo.id}/queues/${q.id}/complete`)
-  })
-
-  const openCancel = (q) => setModal({
-    icon: "❌", title: "ยกเลิกคิว", desc: `ต้องการยกเลิกคิวรอบ ${fmtTime(q.start_time)} ใช่หรือไม่?`,
-    confirmLabel: "ยืนยันยกเลิก", danger: true,
-    onConfirm: () => doAction(`/queue_service/chairs/${chairInfo.id}/queues/${q.id}/cancel`)
-  })
-
-  return (
-    <div className="wt-page">
-      {toast && <div className={`wt-toast ${toast.ok ? "ok" : "fail"}`}>{toast.msg}</div>}
-
-      <div className="wt-header">
-        <button className="wt-back" onClick={() => navigate(-1)}>←</button>
-        <div className="wt-header-info">
-          <h1 className="wt-title">ตารางงานของฉัน</h1>
-          <span className="wt-date">{fmtDate(today)}</span>
-        </div>
-        <button className="wt-refresh-btn" onClick={fetchData} disabled={loading}>🔄</button>
-      </div>
-
-      {chairInfo && (
-        <div className="wt-chair-bar">
-          <div className="wt-chip">🪑 {chairInfo.name}</div>
-          <div className="wt-chip">👤 ช่าง{userInfo?.firstname || userInfo?.username}</div>
-          <div className={`wt-shop-status ${chairInfo.status === "ready" ? "open" : "closed"}`}>
-            ● {chairInfo.status === "ready" ? "พร้อมทำงาน" : "ปิดเก้าอี้"}
-          </div>
-        </div>
-      )}
-
-      <div className="wt-body">
-        {loading && <div className="wt-loading">กำลังโหลดข้อมูลคิว...</div>}
-        {!loading && queues.length === 0 && <div className="wt-empty">ไม่มีข้อมูลคิวในวันนี้</div>}
+    // 2. ฟังก์ชันจัดการ Action (Walk-in, Check-in, Complete, Cancel)
+    const handleAction = async (qId, actionType, chairId) => {
+        if (actionType === "cancel" && !window.confirm("ยืนยันการยกเลิกคิวนี้?")) return;
         
-        {queues.map((q) => {
-          const isPast = checkIsPast(q.start_time);
-          const isExpired = q.status === "AVAILABLE" && isPast;
-          const meta = isExpired ? STATUS_META.EXPIRED : (STATUS_META[q.status] || STATUS_META.AVAILABLE);
-          
-          const isAvail   = q.status === "AVAILABLE" && !isExpired;
-          const isBooked  = q.status === "BOOKED";
-          const isCheckin = q.status === "CHECKIN";
-          const isDone    = ["COMPLETE","CANCELLED","NO_SHOW"].includes(q.status) || isExpired;
+        setActionLoading(true);
+        // ถ้าเป็น cancel เราจะยิงไปที่ endpoint cancel-action ที่เราสร้างไว้ใน backend
+        const endpoint = actionType === "cancel" ? "cancel-action" : actionType;
+        
+        try {
+            const res = await fetchWithAuth(`${baseURL}/queue_service/chairs/${chairId}/queues/${qId}/${endpoint}`, {
+                method: "POST"
+            });
+            if (res.ok) {
+                await fetchMyTable();
+            } else {
+                const err = await res.json();
+                alert(err.detail || "ดำเนินการไม่สำเร็จ");
+            }
+        } catch (err) {
+            alert("ผิดพลาดทางการเชื่อมต่อ");
+        } finally {
+            setActionLoading(false);
+        }
+    };
 
-          return (
-            <div key={q.id} className={`wt-row ${isDone ? "done" : ""} ${isExpired ? "expired" : ""}`}>
-              <div className="wt-time-col">
-                <span className="wt-time-main">{fmtTime(q.start_time)}</span>
-                <span className="wt-time-sep">|</span>
-                <span className="wt-time-end">{fmtTime(q.end_time)}</span>
-              </div>
+    if (loading) return <div className="wt-loader-container">กำลังตรวจสอบข้อมูลร้าน...</div>;
+    if (error) return <div className="wt-loader-container wt-error">⚠️ {error}</div>;
 
-              <div className="wt-dot" style={{ background: meta.dot }}/>
-
-              <div className="wt-content">
-                <div className="wt-top-line">
-                  <span className="wt-status-chip" style={{ color: meta.color, background: meta.bg }}>
-                    {meta.label}
-                  </span>
-                  {q.status_user && (
-                    <span className="wt-type">
-                      {q.status_user === "ONLINE" ? "📱 App" : "🚶 Walk-In"}
-                    </span>
-                  )}
+    // --- ตรวจสอบวันหยุดร้าน ---
+    if (workData && !workData.is_shop_open) {
+        return (
+            <div className="wt-closed-page">
+                <div className="closed-content">
+                    <div className="closed-icon">📅</div>
+                    <h1>วันนี้ร้านหยุดให้บริการ</h1>
+                    <p>{workData.message || "ขออภัยในความไม่สะดวก"}</p>
+                    <button className="btn-refresh" onClick={() => window.location.reload()}>ลองตรวจสอบอีกครั้ง</button>
                 </div>
-
-                {(isBooked || isCheckin) && (
-                  <div className="wt-cust">
-                    <strong>คิวที่:</strong> #{q.id.toString().slice(-4)}
-                  </div>
-                )}
-
-                <div className="wt-actions">
-                  {/* ปุ่ม Walk-In จะแสดงเฉพาะคิวที่ว่างและยังไม่เลยเวลา (Buffer 15 นาที) */}
-                  {isAvail && (
-                    <button className="wt-act walkin" onClick={() => openWalkin(q)}>
-                      + Walk-In
-                    </button>
-                  )}
-                  
-                  {isBooked && (
-                    <>
-                      <button className="wt-act checkin" onClick={() => openCheckin(q)}>
-                        เช็คอิน
-                      </button>
-                      <button className="wt-act cancel-sm" onClick={() => openCancel(q)}>
-                        ยกเลิก
-                      </button>
-                    </>
-                  )}
-                  
-                  {isCheckin && (
-                    <button className="wt-act complete" onClick={() => openComplete(q)}>
-                      เสร็จสิ้น ✓
-                    </button>
-                  )}
-                </div>
-              </div>
             </div>
-          )
-        })}
-      </div>
+        );
+    }
 
-      <ConfirmModal 
-        data={modal} 
-        loading={actionLoading}
-        onClose={() => !actionLoading && setModal(null)}
-        onConfirm={modal?.onConfirm} 
-      />
-    </div>
-  )
+    return (
+        <div className="wt-page-container">
+            <header className="wt-top-bar">
+                <div className="barber-identity">
+                    <img src={`${baseURL}/${userData?.profile_img}`} alt="barber" className="barber-pic" />
+                    <div>
+                        <h2>แผงควบคุม: {workData?.chair_name}</h2>
+                        <p>ช่างผู้ดูแล: <strong>{userData?.firstname} {userData?.lastname}</strong></p>
+                    </div>
+                </div>
+            </header>
+
+            <div className="wt-work-grid">
+                {workData?.queues.length === 0 ? (
+                    <div className="no-data-msg">ไม่มีข้อมูลคิวสำหรับวันนี้</div>
+                ) : (
+                    workData.queues.map((q) => {
+                        const meta = STATUS_META[q.status] || STATUS_META.NO_SHOW;
+                        return (
+                            <div key={q.id} className="wt-queue-card" style={{ borderTop: `5px solid ${meta.color}` }}>
+                                <div className="card-header">
+                                    <span className="time-range">{q.start_time} - {q.end_time}</span>
+                                    <span className="status-label" style={{ color: meta.color, backgroundColor: meta.bg }}>
+                                        {meta.label}
+                                    </span>
+                                </div>
+
+                                <div className="card-body">
+                                    <small>ชื่อลูกค้า</small>
+                                    <h3>{q.customer_name}</h3>
+                                </div>
+
+                                <div className="card-footer">
+                                    {/* สถานะ ว่าง */}
+                                    {q.status === "AVAILABLE" && (
+                                        <button className="btn-wt walkin" onClick={() => handleAction(q.id, "walkin", q.chair_id)} disabled={actionLoading}>
+                                            จอง Walk-in
+                                        </button>
+                                    )}
+
+                                    {/* สถานะ จองแล้ว (เพิ่มปุ่มยกเลิก) */}
+                                    {q.status === "BOOKED" && (
+                                        <>
+                                            <button className="btn-wt checkin" onClick={() => handleAction(q.id, "checkin", q.chair_id)} disabled={actionLoading}>
+                                                เช็คอิน
+                                            </button>
+                                            <button className="btn-wt cancel" onClick={() => handleAction(q.id, "cancel", q.chair_id)} disabled={actionLoading}>
+                                                ยกเลิก
+                                            </button>
+                                        </>
+                                    )}
+
+                                    {/* สถานะ กำลังตัด */}
+                                    {q.status === "CHECKIN" && (
+                                        <button className="btn-wt complete" onClick={() => handleAction(q.id, "complete", q.chair_id)} disabled={actionLoading}>
+                                            เสร็จสิ้นบริการ
+                                        </button>
+                                    )}
+
+                                    {/* สถานะ No-show หรือ Complete (ปุ่มสำหรับเปิดคิวใหม่) */}
+                                    {(q.status === "NO_SHOW" || q.status === "COMPLETE") && (
+                                        <button className="btn-wt reset" onClick={() => handleAction(q.id, "cancel", q.chair_id)} disabled={actionLoading}>
+                                            คืนสล็อตว่าง (Reset)
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+                        );
+                    })
+                )}
+            </div>
+        </div>
+    );
 }

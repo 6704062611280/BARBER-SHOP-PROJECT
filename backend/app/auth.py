@@ -253,15 +253,21 @@ def pre_register(user: UserCreatePreRegister, db: Session = Depends(get_db)):
 # =========================
 @router.get("/profile")
 def get_profile(current_user: User = Depends(get_current_user)):
+    # ดึง barber_id ถ้า user คนนี้เป็นช่าง
+    # สมมติว่าความสัมพันธ์ใน Model คือ current_user.barber
+    barber_id = current_user.barber.id if current_user.barber else None
+    
     return {
+        "id": current_user.id, # ID ของ User
+        "barber_id": barber_id, # ID ของ Barber (ที่ใช้ผูกกับเก้าอี้)
+         "profile_img": current_user.profile_img or "",
+         "email": current_user.email,
         "username": current_user.username,
-        "email": current_user.email,
         "firstname": current_user.firstname or "",
         "lastname": current_user.lastname or "",
-        "phone": current_user.phone or "",
-        "profile_img": current_user.profile_img or "",
-        # ตรวจสอบว่า rolestatus มีค่าก่อนเรียก .value
+         "phone": current_user.phone or "",
         "rolestatus": current_user.rolestatus.value if current_user.rolestatus else None
+        # ... ข้อมูลอื่นๆ
     }
 
 @router.patch("/edit_info")

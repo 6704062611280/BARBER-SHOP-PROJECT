@@ -275,3 +275,52 @@
   animation: ssSpin .7s linear infinite;
 }
 @keyframes ssSpin { to { transform: rotate(360deg); } }
+
+.ss-time-container.hide {
+    opacity: 0;
+    max-height: 0;
+    overflow: hidden;
+    transition: all 0.3s ease-out;
+}
+.ss-time-container.show {
+    opacity: 1;
+    max-height: 200px;
+    transition: all 0.3s ease-in;
+}
+.ss-current-info {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 20px;
+}
+
+.ss-info-label {
+    font-size: 0.9rem;
+    color: #666;
+}
+
+.ss-info-badge {
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-weight: bold;
+    font-size: 1rem;
+}
+
+.ss-info-badge.is-active {
+    background-color: #e6ffed;
+    color: #28a745;
+    border: 1px solid #28a745;
+}
+
+.ss-info-badge.is-inactive {
+    background-color: #fff5f5;
+    color: #dc3545;
+    border: 1px solid #dc3545;
+}
+
+.ss-divider {
+    border: 0;
+    border-top: 1px solid #eee;
+    margin-bottom: 20px;
+}

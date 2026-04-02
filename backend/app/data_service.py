@@ -6,7 +6,7 @@ from app.model import (
     User, Barber, QueueSlots, LeaveLetter,
     BookedStatus, UserRole, LeaveStatus, TypeUser,
     PageView, Notification, CustomeIMgWebsite, Description, CategoryImg,
-    Chair
+    Chair,OpeningDate
 )
 from sqlalchemy.orm import joinedload
 from app.rolebase import require_roles
@@ -374,4 +374,31 @@ def get_notifications(db: Session = Depends(get_db), current_user: User = Depend
     return {
         "items": notifications,
         "unread_count": unread_count
+    }
+
+@router.get("/data_date")
+def data_date(db: Session = Depends(get_db)):
+    # ดึงข้อมูลการตั้งค่าเฉพาะของ "วันนี้"
+    today = date.today()
+    
+    shop_config = db.query(OpeningDate).filter(OpeningDate.date_open == today).first()
+
+    # ถ้าวันนี้ยังไม่มีการตั้งค่าใน DB เลย (เช่น เพิ่งขึ้นวันใหม่)
+    # เราควรส่งค่า Default กลับไปเพื่อให้ Frontend ทำงานต่อได้ไม่พัง
+    if not shop_config:
+        return {
+            "date_open": today.isoformat(),
+            "is_open": False,
+            "open_time": "10:00:00",
+            "close_time": "15:00:00",
+            "message": "no_config_found_using_default"
+        }
+
+    # ถ้ามีข้อมูล ให้ส่งข้อมูลจริงกลับไป
+    return {
+        "id": shop_config.id,
+        "date_open": shop_config.date_open.isoformat(),
+        "is_open": shop_config.is_open,
+        "open_time": shop_config.open_time.strftime("%H:%M:%S"),
+        "close_time": shop_config.close_time.strftime("%H:%M:%S")
     }

@@ -1,6 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { useState, useEffect, useContext, useCallback } from "react";
 import { DataContext } from "../DataContext";
+import { FiArrowLeft, FiUser, FiCalendar, FiClock, FiLock } from "react-icons/fi"; 
 import "./style/SelectChairPage.css";
 import chairImg from "./Image/Barber_chair.png";
 
@@ -9,153 +10,127 @@ export default function ChairPage() {
     const { baseURL } = useContext(DataContext);
 
     const [chairs, setChairs] = useState([]);
-    const [shopStatus, setShopStatus] = useState("loading");
+    const [shopData, setShopData] = useState({ status: "loading", message: "" });
     const [loading, setLoading] = useState(true);
     const [todayTH, setTodayTH] = useState("");
 
     useEffect(() => {
         setTodayTH(new Date().toLocaleDateString("th-TH", {
-            weekday: "long", day: "numeric", month: "long", year: "numeric"
+            weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
         }));
     }, []);
 
     const fetchChairs = useCallback(async () => {
         setLoading(true);
         try {
-            // ดึงวันที่ปัจจุบันในรูปแบบ YYYY-MM-DD เพื่อส่งไปให้ Backend
-            const today = new Date().toISOString().split("T")[0];
-            const res = await fetch(`${baseURL}/queue_service/chairs?dateshop=${today}`, {
+            // เรียก API โดยให้ Backend เช็คเวลา Server เอง
+            const res = await fetch(`${baseURL}/queue_service/chairs`, {
                 headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` }
             });
 
-            if (!res.ok) { 
-                setShopStatus("closed"); 
-                return; 
-            }
-
             const data = await res.json();
             
-            // ตรวจสอบสถานะร้านจาก JSON ที่ Backend ส่งมา (shop_status: "open" / "closed")
             if (data.shop_status === "closed") {
-                setShopStatus("closed");
-                return;
+                setShopData({ status: "closed", message: data.message });
+            } else {
+                setChairs(data.chairs || []);
+                setShopData({ status: "open", message: "" });
             }
-
-            // Mapping ข้อมูลจาก Backend (ใช้ field names ให้ตรงกับ Python)
-            const enriched = (data.chairs || []).map(chair => ({
-                id: chair.id,
-                name: chair.name,
-                status: chair.status,           // "ready", "full", "not_ready"
-                statusText: chair.statusText,   // "พร้อมให้บริการ", "คิวเต็ม", ฯลฯ
-                allowBooking: chair.allowBooking,
-                barberName: chair.barber_name   // ชื่อช่างจาก Backend
-            }));
-
-            setChairs(enriched);
-            setShopStatus("open");
         } catch (error) {
-            console.error("Fetch chairs error:", error);
-            setShopStatus("closed");
+            setShopData({ status: "closed", message: "การเชื่อมต่อเซิร์ฟเวอร์ขัดข้อง" });
         } finally {
             setLoading(false);
         }
     }, [baseURL]);
 
-    useEffect(() => { 
-        fetchChairs(); 
-    }, [fetchChairs]);
+    useEffect(() => { fetchChairs(); }, [fetchChairs]);
 
-    // หน้าจอ Loading
-    if (loading) {
-        return (
-            <div className="sc-loading-screen">
-                <div className="sc-spinner" />
-                <p>กำลังตรวจสอบสถานะร้าน...</p>
-            </div>
-        );
-    }
+    if (loading) return (
+        <div className="sc-loader-wrapper">
+            <div className="sc-loader-spinner"></div>
+            <p>กำลังเตรียมข้อมูลเก้าอี้...</p>
+        </div>
+    );
 
-    // หน้าจอเมื่อร้านปิด (ยังไม่ได้กด Open Shop หรือตั้งค่าปิดร้าน)
-    if (shopStatus === "closed") {
+    // หน้าจอเมื่อร้านปิด (เช็คจากเวลา Server และสถานะใน DB)
+    if (shopData.status === "closed") {
         return (
-            <div className="sc-page">
-                <button className="sc-back-btn" onClick={() => navigate("/")}>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                        <path d="M19 12H5M12 5l-7 7 7 7"/>
-                    </svg>
-                </button>
-                <div className="sc-closed-card">
-                    <div className="sc-closed-icon">
-                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#C0774A" strokeWidth="2">
-                            <rect x="3" y="11" width="18" height="11" rx="2"/>
-                            <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-                        </svg>
+            <div className="sc-closed-container">
+                <div className="sc-closed-glass">
+                    <div className="sc-closed-icon-ring">
+                        <FiLock size={40} />
                     </div>
-                    <h2 className="sc-closed-title">ขออภัย ร้านปิดบริการ</h2>
-                    <p className="sc-closed-sub">ขณะนี้ระบบยังไม่เปิดให้จองคิว<br />กรุณาติดต่อใหม่ภายหลังหรือตรวจสอบเวลาเปิดร้าน</p>
-                    <button className="sc-home-btn" onClick={() => navigate("/")}>กลับหน้าหลัก</button>
+                    <h1>ขออภัย ร้านปิดบริการ</h1>
+                    <p>{shopData.message}</p>
+                    <button className="sc-back-home-btn" onClick={() => navigate("/")}>
+                        กลับหน้าหลัก
+                    </button>
                 </div>
             </div>
         );
     }
 
     return (
-        <div className="sc-page">
-            <button className="sc-back-btn" onClick={() => navigate(-1)}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                    <path d="M19 12H5M12 5l-7 7 7 7"/>
-                </svg>
-            </button>
-
-            <div className="sc-board">
-                <div className="sc-board-title">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#8B6020" strokeWidth="2">
-                        <circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/>
-                        <line x1="20" y1="4" x2="8.12" y2="15.88"/>
-                        <line x1="14.47" y1="14.48" x2="20" y2="20"/>
-                        <line x1="8.12" y1="8.12" x2="12" y2="12"/>
-                    </svg>
-                    <span>เลือกเก้าอี้ที่ต้องการจอง</span>
+        <div className="sc-main-layout">
+            <div className="sc-background-blob"></div>
+            
+            <header className="sc-app-bar">
+                <button className="sc-icon-btn" onClick={() => navigate(-1)}>
+                    <FiArrowLeft size={24} />
+                </button>
+                <div className="sc-header-content">
+                    <h1>เลือกเก้าอี้บริการ</h1>
+                    <span><FiCalendar style={{marginRight: '5px'}}/> {todayTH}</span>
                 </div>
-                <p className="sc-date">{todayTH}</p>
+                <div style={{width: '40px'}}></div> {/* Spacer */}
+            </header>
 
-                {chairs.length === 0 ? (
-                    <p className="sc-empty">ไม่มีเก้าอี้ให้บริการในขณะนี้</p>
-                ) : (
-                    <div className="sc-grid">
-                        {chairs.map(chair => (
-                            <div key={chair.id} className={`sc-card sc-card-${chair.status}`}>
-                                <div className="sc-img-wrap">
-                                    <img
-                                        src={chairImg}
-                                        alt={chair.name}
-                                        className="sc-chair-img"
-                                        style={!chair.allowBooking ? { filter: "grayscale(1) opacity(.45)" } : {}}
+            <main className="sc-content">
+                <div className="sc-grid-container">
+                    {chairs.map((chair) => (
+                        <div key={chair.id} className={`sc-item-card ${chair.status}`}>
+                            {/* จำนวนคิวที่ว่าง */}
+                            {chair.status === "ready" && (
+                                <div className="sc-count-tag">
+                                    <FiClock size={12} /> ว่าง {chair.available_count} รอบ
+                                </div>
+                            )}
+
+                            <div className="sc-card-inner">
+                                <div className="sc-image-section">
+                                    <img 
+                                        src={chairImg} 
+                                        alt="barber-chair" 
+                                        className="sc-main-img"
+                                        style={!chair.allowBooking ? { filter: "grayscale(1) opacity(0.3)" } : {}}
                                     />
                                 </div>
-                                <div className="sc-info">
-                                    <span className="sc-name">{chair.name}</span>
-                                    {chair.barberName && (
-                                        <span className="sc-barber">ช่าง: {chair.barberName}</span>
-                                    )}
-                                    <div className={`sc-badge sc-badge-${chair.status}`}>
-                                        <div className="sc-dot" />
-                                        <span>{chair.statusText}</span>
+
+                                <div className="sc-details-section">
+                                    <h2 className="sc-chair-title">{chair.name}</h2>
+                                    <div className="sc-barber-info">
+                                        <FiUser size={14} />
+                                        <span>{chair.barber_name ? `ช่าง ${chair.barber_name}` : "ไม่มีช่างประจำ"}</span>
+                                    </div>
+                                    
+                                    <div className={`sc-status-pill status-${chair.status}`}>
+                                        <span className="sc-pulse-dot"></span>
+                                        {chair.statusText}
                                     </div>
                                 </div>
-                                <div className="sc-divider" />
-                                <button
-                                    className={`sc-btn ${chair.allowBooking ? "sc-btn-book" : "sc-btn-full"}`}
+
+                                <button 
+                                    className="sc-action-button"
                                     disabled={!chair.allowBooking}
-                                    onClick={() => chair.allowBooking && navigate(`/booking/${chair.id}`)}
+                                    onClick={() => navigate(`/booking/${chair.id}`)}
                                 >
-                                    {chair.allowBooking ? "เลือกเวลาจอง" : chair.statusText}
+                                    {chair.allowBooking ? "จองคิวตอนนี้" : "ไม่สามารถจองได้"}
                                 </button>
                             </div>
-                        ))}
-                    </div>
-                )}
-            </div>
+                        </div>
+                    ))}
+                </div>
+            </main>
         </div>
     );
 }
