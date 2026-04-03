@@ -9,6 +9,7 @@ from app.queue_service import router as  queue_service_router
 from app.barber_manage import router as barber_manage_router
 from app.data_service import router as data_router
 from fastapi.staticfiles import StaticFiles
+import os
 from apscheduler.schedulers.background import BackgroundScheduler
 from datetime import datetime
 from sqlalchemy.orm import Session
@@ -20,10 +21,15 @@ app = FastAPI(
     version="2.0.0",
     description="Backend for Barber Shop booking system",
 )
-origin = "http://localhost:5173"
+# Support deployed frontend URLs via comma-separated CORS_ORIGINS env.
+origins = [
+    origin.strip()
+    for origin in os.getenv("CORS_ORIGINS", "http://localhost:5173").split(",")
+    if origin.strip()
+]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origin,
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

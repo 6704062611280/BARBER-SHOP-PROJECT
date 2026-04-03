@@ -3,8 +3,6 @@ import { useState, useRef, useContext, useEffect } from "react"
 import { DataContext } from "../DataContext"
 import "./style/DashBoardPage.css"
 
-const BASE_URL = "http://localhost:8000" // adjust as needed
-
 const STATUS_COLORS = {
   booked: "#E07B54",
   available: "#6DBF8C",
@@ -134,6 +132,7 @@ function LeaveStatusRow({ label, val, color }) {
 
 export default function DashBoard() {
   const navigate = useNavigate()
+  const { baseURL } = useContext(DataContext)
   const [queues, setQueues] = useState(null)
   const [customers, setCustomers] = useState(null)
   const [barbers, setBarbers] = useState(null)
@@ -148,14 +147,15 @@ export default function DashBoard() {
 
   useEffect(() => {
     const fetchAll = async () => {
+      if (!baseURL) return
       setLoading(true)
       setError(null)
       try {
         const [q, c, b, l] = await Promise.all([
-          fetch(`${BASE_URL}/num_queues`).then((r) => r.json()),
-          fetch(`${BASE_URL}/num_customer`).then((r) => r.json()),
-          fetch(`${BASE_URL}/num_barber`).then((r) => r.json()),
-          fetch(`${BASE_URL}/num_letter`).then((r) => r.json()),
+          fetch(`${baseURL}/num_queues`).then((r) => r.json()),
+          fetch(`${baseURL}/num_customer`).then((r) => r.json()),
+          fetch(`${baseURL}/num_barber`).then((r) => r.json()),
+          fetch(`${baseURL}/num_letter`).then((r) => r.json()),
         ])
         setQueues(q)
         setCustomers(c)
@@ -168,7 +168,7 @@ export default function DashBoard() {
       }
     }
     fetchAll()
-  }, [])
+  }, [baseURL])
 
   return (
     <div className="db-root">
