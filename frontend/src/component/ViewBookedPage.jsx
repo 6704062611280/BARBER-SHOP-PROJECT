@@ -1,7 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { useState, useContext, useEffect, useCallback } from "react";
 import { DataContext } from "../DataContext";
-import { FiCalendar, FiClock, FiUser, FiArrowLeft, FiTrash2, FiMapPin, FiAlertCircle } from "react-icons/fi";
+import { FiCalendar, FiClock, FiUser, FiArrowLeft, FiTrash2, FiMapPin, FiAlertCircle } from "./FeatherIcons";
 import "./style/ViewBookedPage.css";
 
 export default function BookedPage() {
