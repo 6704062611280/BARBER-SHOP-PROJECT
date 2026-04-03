@@ -4,16 +4,42 @@ from sqlalchemy.orm import declarative_base,sessionmaker
 from dotenv import load_dotenv
 from urllib.parse import quote_plus
 
+import pymysql
+
+pymysql.install_as_MySQLdb()
+
 load_dotenv()
 
 Base = declarative_base()
+
+
+def _normalize_database_url(raw_url: str) -> str:
+    # Clean up values copied from dashboard UIs (quotes/newlines/spaces).
+    url = raw_url.strip().strip('"').strip("'")
+
+    # Fail fast on unresolved template variables.
+    if "${" in url or "{{" in url:
+        raise RuntimeError(
+            "Database URL looks like a template placeholder. "
+            "Set a real DATABASE_URL value in deployment variables."
+        )
+
+    # Normalize driver prefixes for SQLAlchemy.
+    if url.startswith("mysql://"):
+        return "mysql+pymysql://" + url[len("mysql://"):]
+    if url.startswith("postgres://"):
+        return "postgresql+psycopg2://" + url[len("postgres://"):]
+    if url.startswith("postgresql://") and "+" not in url.split("://", 1)[0]:
+        return "postgresql+psycopg2://" + url[len("postgresql://"):]
+
+    return url
 
 
 def _resolve_database_url() -> str:
     # Prefer a full URL when provided by platform secrets.
     url = os.getenv("DATABASE_URL") or os.getenv("MYSQL_URL")
     if url:
-        return url
+        return _normalize_database_url(url)
 
     # Fallback: compose URL from common Railway/MySQL env var names.
     host = os.getenv("MYSQLHOST") or os.getenv("DB_HOST")
