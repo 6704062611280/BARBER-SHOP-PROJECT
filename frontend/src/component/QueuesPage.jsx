@@ -1,7 +1,7 @@
 import { useNavigate, useParams } from "react-router-dom";
 import { useState, useEffect, useContext, useCallback } from "react";
 import { DataContext } from "../DataContext";
-import { FiClock, FiCheck, FiChevronLeft, FiInfo, FiZap, FiAlertCircle } from "react-icons/fi";
+import { FiCheck, FiChevronLeft, FiZap, FiAlertCircle } from "./FeatherIcons";
 import "./style/QueuesPage.css";
 
 export default function QueuesPage() {

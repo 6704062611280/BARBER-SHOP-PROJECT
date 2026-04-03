@@ -1,7 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { useState, useEffect, useContext, useCallback } from "react";
 import { DataContext } from "../DataContext";
-import { FiArrowLeft, FiUser, FiCalendar, FiClock, FiLock } from "react-icons/fi"; 
+import { FiArrowLeft, FiUser, FiCalendar, FiClock, FiLock } from "./FeatherIcons";
 import "./style/SelectChairPage.css";
 import chairImg from "./Image/Barber_chair.png";
 
